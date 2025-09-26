@@ -456,10 +456,17 @@
 
             if (!res.ok) {
               const text = await res.text().catch(() => "");
-              throw new Error(text || "Cloud load failed");
+              throw new Error(text || `Cloud load failed (HTTP ${res.status})`);
             }
 
-            const payload = await res.json().catch(() => null);
+            const raw = await res.text();
+            let payload = null;
+            try {
+              payload = raw ? JSON.parse(raw) : null;
+            } catch (parseErr) {
+              console.error("Unable to parse cloud load response", parseErr, raw);
+              throw new Error("Cloud load returned invalid JSON");
+            }
             const data = payload?.data ?? payload;
             if (!data) return false;
 
@@ -512,11 +519,20 @@
             credentials: "omit",
             mode: "cors",
           });
+          const raw = await res.text().catch(() => "");
           if (!res.ok) {
-            const text = await res.text().catch(() => "");
-            throw new Error(text || "Cloud save failed");
+            console.error("Cloud save error", res.status, raw);
+            throw new Error(raw || `Cloud save failed (HTTP ${res.status})`);
           }
-          const body = await res.json().catch(() => null);
+          let body = null;
+          if (raw) {
+            try {
+              body = JSON.parse(raw);
+            } catch (parseErr) {
+              console.error("Unable to parse cloud save response", parseErr, raw);
+              throw new Error("Cloud save returned invalid JSON");
+            }
+          }
           if (body && body.ok === false) {
             throw new Error(body.message || "Cloud save rejected");
           }
