@@ -446,23 +446,51 @@
           try {
             const url = new URL(CLOUD.endpoint);
             url.searchParams.set("league", CLOUD.leagueId);
-            url.searchParams.set("mode", "load");
-            const res = await fetch(url.toString(), {
+
+            let res = await fetch(url.toString(), {
               method: "GET",
               credentials: "omit",
               mode: "cors",
               headers: { Accept: "application/json" },
             });
-            if (!res.ok) throw new Error("Cloud load failed");
+
+            if (!res.ok) {
+              res = await fetch(CLOUD.endpoint, {
+                method: "POST",
+                credentials: "omit",
+                mode: "cors",
+                headers: {
+                  "Content-Type": "application/json",
+                  Accept: "application/json",
+                },
+                body: JSON.stringify({ league: CLOUD.leagueId, mode: "load" }),
+              });
+            }
+
+            if (!res.ok) {
+              const text = await res.text().catch(() => "");
+              throw new Error(text || "Cloud load failed");
+            }
+
             const payload = await res.json().catch(() => null);
             const data = payload?.data ?? payload;
             if (!data) return false;
 
-            applySyncedData({
-              setPlayers, setContestants, setDraftOrder, setPicksPerPlayer,
-              setDraftPicks, setCurrentPickIndex, setWeeks, setScoring,
-              setWeekEvents, setFinale
-            }, data);
+            applySyncedData(
+              {
+                setPlayers,
+                setContestants,
+                setDraftOrder,
+                setPicksPerPlayer,
+                setDraftPicks,
+                setCurrentPickIndex,
+                setWeeks,
+                setScoring,
+                setWeekEvents,
+                setFinale,
+              },
+              data
+            );
 
             return true;
           } catch (err) {
