@@ -34,10 +34,6 @@ function doGet(e) {
 }
 
 function doPost(e) {
-  if (e?.parameter?.mode === 'options') {
-    return _resp({ ok: true });
-  }
-
   // Optional: simple write key check
   const league = (e.parameter.league || '').trim();
   const writeKey = (e.parameter.writeKey || '').trim(); // optional
@@ -66,13 +62,23 @@ function doPost(e) {
 function _resp(obj, status) {
   const out = ContentService.createTextOutput(JSON.stringify(obj))
     .setMimeType(ContentService.MimeType.JSON);
-  const response = out;
-  if (status) {
-    response.setHeader && response.setHeader('Access-Control-Allow-Origin', '*');
-    return response.setStatusCode(status);
+
+  const headers = {
+    'Access-Control-Allow-Origin': 'https://brxtn.github.io',
+    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
+    'Vary': 'Origin',
+  };
+
+  if (typeof out.setHeaders === 'function') {
+    out.setHeaders(headers);
+  } else if (typeof out.setHeader === 'function') {
+    Object.entries(headers).forEach(([key, value]) => out.setHeader(key, value));
   }
-  response.setHeader && response.setHeader('Access-Control-Allow-Origin', '*');
-  response.setHeader && response.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-  response.setHeader && response.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
-  return response;
+
+  if (status && typeof out.setStatusCode === 'function') {
+    out.setStatusCode(status);
+  }
+
+  return out;
 }
