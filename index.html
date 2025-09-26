@@ -295,7 +295,6 @@
           STORAGE_KEY + ":finale",
           { finalistIds: [], winnerId: null }
         );
-        const [showPhotoInputs, setShowPhotoInputs] = useState(false);
 
         const maxPicks = draftOrder.length * picksPerPlayer;
         const allPickedSet = new Set(draftPicks);
@@ -589,17 +588,6 @@
                 </button>
 
                 <button
-                  className={`px-3 py-2 rounded-xl border border-gray-300 hover:bg-gray-100 ${
-                    showPhotoInputs ? "bg-black text-white border-black" : "bg-white"
-                  }`}
-                  onClick={() => setShowPhotoInputs((v) => !v)}
-                  title="Toggle contestant photo URL inputs"
-                  type="button"
-                >
-                  {showPhotoInputs ? "Hide Photo URLs" : "Show Photo URLs"}
-                </button>
-
-                <button
                   className="px-3 py-2 rounded-xl bg-white border border-gray-300 hover:bg-gray-100"
                   onClick={resetAll}
                 >
@@ -646,8 +634,6 @@
                 pickSequence={pickSequence}
                 availableContestants={availableContestants}
                 maxPicks={maxPicks}
-                showPhotoInputs={showPhotoInputs}
-                setShowPhotoInputs={setShowPhotoInputs}
               />
             )}
 
@@ -708,10 +694,9 @@
         pickSequence,
         availableContestants,
         maxPicks,
-        showPhotoInputs,
-        setShowPhotoInputs,
       }) {
         const [newPlayer, setNewPlayer] = useState("");
+        const [showPhotoInputs, setShowPhotoInputs] = useState(false);
 
         function addPlayer() {
           const name = newPlayer.trim();
