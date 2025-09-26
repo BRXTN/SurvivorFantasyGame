@@ -15,11 +15,26 @@
     <script type="text/babel">
       const { useEffect, useMemo, useState } = React;
 
-      const DEFAULT_CONTESTANTS = Array.from({ length: 18 }, (_, i) => ({
-        id: `c${i + 1}`,
-        name: `Contestant ${i + 1}`,
-        eliminatedWeek: null,
-      }));
+      const DEFAULT_CONTESTANTS = [
+        { id: "c1", name: "Alex Moore", eliminatedWeek: null },
+        { id: "c2", name: "Kimberly \"Annie\" Davis", eliminatedWeek: null },
+        { id: "c3", name: "Jake Latimer", eliminatedWeek: null },
+        { id: "c4", name: "Jason Treul", eliminatedWeek: null },
+        { id: "c5", name: "Jawan Pitts", eliminatedWeek: null },
+        { id: "c6", name: "Jeremiah Ing", eliminatedWeek: null },
+        { id: "c7", name: "Kristina Mills", eliminatedWeek: null },
+        { id: "c8", name: "Matt Williams", eliminatedWeek: null },
+        { id: "c9", name: "Michelle \"MC\" Chukwujekwu", eliminatedWeek: null },
+        { id: "c10", name: "Nicole Mazullo", eliminatedWeek: null },
+        { id: "c11", name: "Rizo Velovic", eliminatedWeek: null },
+        { id: "c12", name: "Sage Ahrens-Nichols", eliminatedWeek: null },
+        { id: "c13", name: "Savannah Louie", eliminatedWeek: null },
+        { id: "c14", name: "Shannon Fairweather", eliminatedWeek: null },
+        { id: "c15", name: "Sophi (\"Sophia\") Balerdi", eliminatedWeek: null },
+        { id: "c16", name: "Sophie Segreti", eliminatedWeek: null },
+        { id: "c17", name: "Steven Ramm", eliminatedWeek: null },
+        { id: "c18", name: "Nate Moore", eliminatedWeek: null },
+      ];
 
       const DEFAULT_SCORING = {
         survive: 2,
