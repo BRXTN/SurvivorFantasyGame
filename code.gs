@@ -64,7 +64,7 @@ function _resp(obj, status) {
     .setMimeType(ContentService.MimeType.JSON);
 
   const headers = {
-    'Access-Control-Allow-Origin': 'https://brxtn.github.io',
+    'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Headers': 'Content-Type',
     'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
     'Vary': 'Origin',
