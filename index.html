@@ -13,7 +13,7 @@
     <div id="root"></div>
 
     <script type="text/babel">
-      const { useEffect, useMemo, useState } = React;
+      const { useEffect, useMemo, useRef, useState } = React;
 
       function generateAvatarUrl(name) {
         const trimmed = (name || "").trim();
@@ -144,6 +144,80 @@
       };
 
       const STORAGE_KEY = "survivorFantasy_v1";
+
+      // === Cloud Sync Config ===
+      const CLOUD = {
+        endpoint: "https://script.google.com/macros/s/AKfycbzkcrYVcqIclItL1ipvq-ZFZjJtMwjKqCOK6ITdJjVwcwUj4fQvRcLi0-EEBbPiqMs/exec",
+        leagueId: "brixton-family-s49", // change if you want separate leagues
+        writeKey: ""                    // optional: add a secret & enforce in Apps Script
+      };
+
+      function buildPayloadForSync({
+        players,
+        contestants,
+        draftOrder,
+        picksPerPlayer,
+        draftPicks,
+        currentPickIndex,
+        weeks,
+        scoring,
+        weekEvents,
+        finale,
+      }) {
+        return {
+          version: 1,
+          players,
+          contestants,
+          draftOrder,
+          picksPerPlayer,
+          draftPicks,
+          currentPickIndex,
+          weeks,
+          scoring,
+          weekEvents,
+          finale,
+        };
+      }
+
+      function applySyncedData(setters, data) {
+        const {
+          setPlayers,
+          setContestants,
+          setDraftOrder,
+          setPicksPerPlayer,
+          setDraftPicks,
+          setCurrentPickIndex,
+          setWeeks,
+          setScoring,
+          setWeekEvents,
+          setFinale,
+        } = setters;
+
+        const {
+          players,
+          contestants,
+          draftOrder,
+          picksPerPlayer,
+          draftPicks,
+          currentPickIndex,
+          weeks,
+          scoring,
+          weekEvents,
+          finale,
+        } = data || {};
+
+        if (!data) return;
+        setPlayers(players ?? []);
+        setContestants(contestants ?? []);
+        setDraftOrder(draftOrder ?? []);
+        setPicksPerPlayer(picksPerPlayer ?? 3);
+        setDraftPicks(draftPicks ?? []);
+        setCurrentPickIndex(currentPickIndex ?? 0);
+        setWeeks(weeks ?? 13);
+        setScoring(scoring ?? {});
+        setWeekEvents(weekEvents ?? {});
+        setFinale(finale ?? { finalistIds: [], winnerId: null });
+      }
 
       function useLocalState(key, initial) {
         const [value, setValue] = useState(() => {
@@ -367,6 +441,54 @@
           };
           reader.readAsText(file);
         }
+        // ===== Cloud sync (load/save) =====
+        async function cloudLoad() {
+          try {
+            const url = new URL(CLOUD.endpoint);
+            url.searchParams.set("league", CLOUD.leagueId);
+            const res = await fetch(url.toString(), { method: "GET", credentials: "omit" });
+            if (!res.ok) throw new Error("Cloud load failed");
+            const payload = await res.json();
+            if (!payload || !payload.data) return false;
+
+            applySyncedData({
+              setPlayers, setContestants, setDraftOrder, setPicksPerPlayer,
+              setDraftPicks, setCurrentPickIndex, setWeeks, setScoring,
+              setWeekEvents, setFinale
+            }, payload.data);
+
+            return true;
+          } catch (err) {
+            console.error(err);
+            return false;
+          }
+        }
+
+        const saveTimerRef = useRef(null);
+        function scheduleCloudSave(snapshot) {
+          if (saveTimerRef.current) {
+            clearTimeout(saveTimerRef.current);
+          }
+          saveTimerRef.current = setTimeout(() => {
+            cloudSave(snapshot).catch((e) =>
+              console.error("Cloud save failed", e)
+            );
+          }, 1200); // debounce 1.2s
+        }
+
+        async function cloudSave(snapshot) {
+          const url = new URL(CLOUD.endpoint);
+          url.searchParams.set("league", CLOUD.leagueId);
+          if (CLOUD.writeKey) url.searchParams.set("writeKey", CLOUD.writeKey);
+
+          const res = await fetch(url.toString(), {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(snapshot),
+            credentials: "omit"
+          });
+          if (!res.ok) throw new Error("Cloud save failed");
+        }
 
         const Tab = ({ id, current, setCurrent, children }) => (
           <button
@@ -382,6 +504,30 @@
         );
 
         const [tab, setTab] = useState("draft");
+
+        // Autosave to cloud whenever anything important changes (debounced)
+        useEffect(() => {
+          const snapshot = buildPayloadForSync({
+            players, contestants, draftOrder, picksPerPlayer, draftPicks,
+            currentPickIndex, weeks, scoring, weekEvents, finale
+          });
+          scheduleCloudSave(snapshot);
+          // eslint-disable-next-line react-hooks/exhaustive-deps
+        }, [players, contestants, draftOrder, picksPerPlayer, draftPicks, currentPickIndex, weeks, scoring, weekEvents, finale]);
+
+        // On first load, try to pull the latest from the cloud
+        useEffect(() => {
+          cloudLoad().catch(() => {/* ignore */});
+          // eslint-disable-next-line react-hooks/exhaustive-deps
+        }, []);
+
+        useEffect(() => {
+          return () => {
+            if (saveTimerRef.current) {
+              clearTimeout(saveTimerRef.current);
+            }
+          };
+        }, []);
 
         return (
           <div className="min-h-screen bg-gray-50">
@@ -403,17 +549,44 @@
                 >
                   Export
                 </button>
+
                 <label className="px-3 py-2 rounded-xl bg-white border border-gray-300 hover:bg-gray-100 cursor-pointer">
                   Import
                   <input
                     type="file"
                     className="hidden"
                     accept="application/json"
-                    onChange={(e) =>
-                      e.target.files?.[0] && importJSON(e.target.files[0])
-                    }
+                    onChange={(e) => e.target.files?.[0] && importJSON(e.target.files[0])}
                   />
                 </label>
+
+                <button
+                  className="px-3 py-2 rounded-xl bg-white border border-gray-300 hover:bg-gray-100"
+                  onClick={async () => {
+                    const ok = await cloudLoad();
+                    if (!ok) window.alert("Cloud load failed or empty.");
+                  }}
+                  title="Load the latest league state from the cloud"
+                >
+                  Cloud Load
+                </button>
+
+                <button
+                  className="px-3 py-2 rounded-xl bg-white border border-gray-300 hover:bg-gray-100"
+                  onClick={() => {
+                    const snapshot = buildPayloadForSync({
+                      players, contestants, draftOrder, picksPerPlayer, draftPicks,
+                      currentPickIndex, weeks, scoring, weekEvents, finale
+                    });
+                    cloudSave(snapshot).then(() => {
+                      // optional toast; silent success is fine
+                    }).catch(() => window.alert("Cloud save failed"));
+                  }}
+                  title="Save current league to the cloud"
+                >
+                  Cloud Save
+                </button>
+
                 <button
                   className="px-3 py-2 rounded-xl bg-white border border-gray-300 hover:bg-gray-100"
                   onClick={resetAll}
@@ -523,6 +696,7 @@
         maxPicks,
       }) {
         const [newPlayer, setNewPlayer] = useState("");
+        const [showPhotoInputs, setShowPhotoInputs] = useState(false);
 
         function addPlayer() {
           const name = newPlayer.trim();
@@ -699,7 +873,17 @@
               </div>
 
               <div className="bg-white rounded-2xl shadow p-4 sm:p-6 border border-gray-200">
-                <h2 className="text-lg font-semibold mb-3">Draft Board</h2>
+                <div className="flex items-center justify-between mb-3">
+                  <h2 className="text-lg font-semibold">Draft Board</h2>
+                  <button
+                    type="button"
+                    className="px-3 py-2 rounded-xl border border-gray-200 text-sm"
+                    onClick={() => setShowPhotoInputs((v) => !v)}
+                    aria-pressed={showPhotoInputs}
+                  >
+                    {showPhotoInputs ? "Hide photo URLs" : "Show photo URLs"}
+                  </button>
+                </div>
                 <p className="text-sm text-gray-600 mb-3">
                   {currentPickIndex < maxPicks ? (
                     <>
@@ -732,21 +916,23 @@
                         <div className="flex items-start gap-3">
                           <ContestantAvatar contestant={c} size={72} />
                           <div className="flex-1 space-y-2">
-                            <input
-                              className="w-full px-3 py-2 rounded-lg border border-gray-300"
-                              value={c.name}
-                              onChange={(e) =>
-                                updateContestant(c.id, { name: e.target.value })
-                              }
-                            />
-                            <input
-                              className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
-                              placeholder="Photo URL (optional)"
-                              value={c.photoUrl || ""}
-                              onChange={(e) =>
-                                updateContestant(c.id, { photoUrl: e.target.value })
-                              }
-                            />
+                          <input
+                            className="w-full px-3 py-2 rounded-lg border border-gray-300"
+                            value={c.name}
+                            onChange={(e) =>
+                              updateContestant(c.id, { name: e.target.value })
+                            }
+                          />
+                            {showPhotoInputs && (
+                              <input
+                                className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
+                                placeholder="Photo URL (optional)"
+                                value={c.photoUrl || ""}
+                                onChange={(e) =>
+                                  updateContestant(c.id, { photoUrl: e.target.value })
+                                }
+                              />
+                            )}
                           </div>
                           {isAvailable ? (
                             <button
