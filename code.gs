@@ -34,6 +34,10 @@ function doGet(e) {
 }
 
 function doPost(e) {
+  if (e?.parameter?.mode === 'options') {
+    return _resp({ ok: true });
+  }
+
   // Optional: simple write key check
   const league = (e.parameter.league || '').trim();
   const writeKey = (e.parameter.writeKey || '').trim(); // optional
@@ -62,9 +66,13 @@ function doPost(e) {
 function _resp(obj, status) {
   const out = ContentService.createTextOutput(JSON.stringify(obj))
     .setMimeType(ContentService.MimeType.JSON);
-  const resp = HtmlService.createHtmlOutput().getContent(); // force headers
-  const r = out;
-  // CORS
-  r.setHeader && r.setHeader('Access-Control-Allow-Origin', '*');
-  return out;
+  const response = out;
+  if (status) {
+    response.setHeader && response.setHeader('Access-Control-Allow-Origin', '*');
+    return response.setStatusCode(status);
+  }
+  response.setHeader && response.setHeader('Access-Control-Allow-Origin', '*');
+  response.setHeader && response.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  response.setHeader && response.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
+  return response;
 }
