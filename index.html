@@ -446,16 +446,23 @@
           try {
             const url = new URL(CLOUD.endpoint);
             url.searchParams.set("league", CLOUD.leagueId);
-            const res = await fetch(url.toString(), { method: "GET", credentials: "omit" });
+            url.searchParams.set("mode", "load");
+            const res = await fetch(url.toString(), {
+              method: "GET",
+              credentials: "omit",
+              mode: "cors",
+              headers: { Accept: "application/json" },
+            });
             if (!res.ok) throw new Error("Cloud load failed");
-            const payload = await res.json();
-            if (!payload || !payload.data) return false;
+            const payload = await res.json().catch(() => null);
+            const data = payload?.data ?? payload;
+            if (!data) return false;
 
             applySyncedData({
               setPlayers, setContestants, setDraftOrder, setPicksPerPlayer,
               setDraftPicks, setCurrentPickIndex, setWeeks, setScoring,
               setWeekEvents, setFinale
-            }, payload.data);
+            }, data);
 
             return true;
           } catch (err) {
@@ -478,16 +485,31 @@
 
         async function cloudSave(snapshot) {
           const url = new URL(CLOUD.endpoint);
-          url.searchParams.set("league", CLOUD.leagueId);
-          if (CLOUD.writeKey) url.searchParams.set("writeKey", CLOUD.writeKey);
+          url.searchParams.set("mode", "save");
+          const payload = {
+            league: CLOUD.leagueId,
+            data: snapshot,
+          };
+          if (CLOUD.writeKey) payload.writeKey = CLOUD.writeKey;
 
           const res = await fetch(url.toString(), {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(snapshot),
-            credentials: "omit"
+            headers: {
+              "Content-Type": "application/json",
+              Accept: "application/json",
+            },
+            body: JSON.stringify(payload),
+            credentials: "omit",
+            mode: "cors",
           });
-          if (!res.ok) throw new Error("Cloud save failed");
+          if (!res.ok) {
+            const text = await res.text().catch(() => "");
+            throw new Error(text || "Cloud save failed");
+          }
+          const body = await res.json().catch(() => null);
+          if (body && body.ok === false) {
+            throw new Error(body.message || "Cloud save rejected");
+          }
         }
 
         const Tab = ({ id, current, setCurrent, children }) => (
@@ -580,7 +602,7 @@
                     });
                     cloudSave(snapshot).then(() => {
                       // optional toast; silent success is fine
-                    }).catch(() => window.alert("Cloud save failed"));
+                    }).catch((err) => window.alert(err?.message || "Cloud save failed"));
                   }}
                   title="Save current league to the cloud"
                 >
