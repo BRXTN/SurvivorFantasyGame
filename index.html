@@ -1,691 +1,981 @@
-import React, { useEffect, useMemo, useState } from "react";
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Survivor S49 Fantasy Draft</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script crossorigin src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  </head>
+  <body class="min-h-screen bg-gray-50">
+    <div id="root"></div>
 
-/**
- * Survivor S49 Fantasy Draft — Quick & Simple Website
- * --------------------------------------------------
- * One-file React app. No backend. Saves to localStorage.
- * Tailwind classes for clean UI. Works great shared as a static page.
- *
- * Features
- * - Add players (your friends) and contestants (castaways)
- * - Snake draft helper (auto-advances turns, undo last pick)
- * - Team rosters per player
- * - Weekly scoring with checkboxes for common Survivor events
- * - Configurable scoring values
- * - Leaderboard auto-updates
- * - Import / Export JSON for easy sharing
- */
+    <script type="text/babel">
+      const { useEffect, useMemo, useState } = React;
 
-const DEFAULT_CONTESTANTS = Array.from({ length: 18 }, (_, i) => ({
-  id: `c${i + 1}`,
-  name: `Contestant ${i + 1}`,
-  eliminatedWeek: null, // number | null
-}));
+      const DEFAULT_CONTESTANTS = Array.from({ length: 18 }, (_, i) => ({
+        id: `c${i + 1}`,
+        name: `Contestant ${i + 1}`,
+        eliminatedWeek: null,
+      }));
 
-const DEFAULT_SCORING = {
-  survive: 2,
-  rewardWin: 1,
-  immunityWin: 3,
-  idolFound: 3,
-  idolPlayedSuccess: 5,
-  finalTribal: 5, // give once at finale
-  winner: 10, // give once at finale
-};
-
-const STORAGE_KEY = "survivorFantasy_v1";
-
-function useLocalState(key, initial) {
-  const [value, setValue] = useState(() => {
-    try {
-      const raw = localStorage.getItem(key);
-      return raw ? JSON.parse(raw) : initial;
-    } catch {
-      return initial;
-    }
-  });
-  useEffect(() => {
-    try {
-      localStorage.setItem(key, JSON.stringify(value));
-    } catch {}
-  }, [key, value]);
-  return [value, setValue];
-}
-
-export default function App() {
-  const [players, setPlayers] = useLocalState(STORAGE_KEY + ":players", [
-    { id: "p1", name: "Player 1" },
-    { id: "p2", name: "Player 2" },
-  ]);
-  const [contestants, setContestants] = useLocalState(
-    STORAGE_KEY + ":contestants",
-    DEFAULT_CONTESTANTS
-  );
-  const [teams, setTeams] = useLocalState(STORAGE_KEY + ":teams", {}); // {playerId: [contestantIds]}
-  const [draftOrder, setDraftOrder] = useLocalState(
-    STORAGE_KEY + ":draftOrder",
-    ["p1", "p2"]
-  );
-  const [picksPerPlayer, setPicksPerPlayer] = useLocalState(
-    STORAGE_KEY + ":picksPerPlayer",
-    3
-  );
-  const [draftPicks, setDraftPicks] = useLocalState(
-    STORAGE_KEY + ":draftPicks",
-    [] // array of contestantIds in pick order
-  );
-  const [currentPickIndex, setCurrentPickIndex] = useLocalState(
-    STORAGE_KEY + ":currentPickIndex",
-    0
-  );
-  const [weeks, setWeeks] = useLocalState(STORAGE_KEY + ":weeks", 13);
-  const [scoring, setScoring] = useLocalState(
-    STORAGE_KEY + ":scoring",
-    DEFAULT_SCORING
-  );
-  const [weekEvents, setWeekEvents] = useLocalState(
-    STORAGE_KEY + ":weekEvents",
-    /** structure: { [week]: { [contestantId]: { survive, rewardWin, immunityWin, idolFound, idolPlayedSuccess } } } */
-    {}
-  );
-  const [finale, setFinale] = useLocalState(
-    STORAGE_KEY + ":finale",
-    /** { finalistIds: string[], winnerId: string | null } */
-    { finalistIds: [], winnerId: null }
-  );
-
-  // Derived helpers
-  const maxPicks = draftOrder.length * picksPerPlayer;
-  const allPickedSet = new Set(draftPicks);
-  const availableContestants = contestants.filter((c) => !allPickedSet.has(c.id));
-
-  const pickSequence = useMemo(() => {
-    // Build snake order list of playerIds for total picks
-    const rounds = picksPerPlayer;
-    const seq = [];
-    for (let r = 0; r < rounds; r++) {
-      const order = r % 2 === 0 ? draftOrder : [...draftOrder].reverse();
-      seq.push(...order);
-    }
-    return seq;
-  }, [draftOrder, picksPerPlayer]);
-
-  const currentPickerId = pickSequence[currentPickIndex] || null;
-
-  const teamsComputed = useMemo(() => {
-    // Build from draft picks sequence
-    const map = Object.fromEntries(players.map((p) => [p.id, []]));
-    for (let i = 0; i < draftPicks.length; i++) {
-      const pid = pickSequence[i];
-      if (!pid) break;
-      map[pid].push(draftPicks[i]);
-    }
-    return map;
-  }, [players, draftPicks, pickSequence]);
-
-  useEffect(() => {
-    setTeams(teamsComputed);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [teamsComputed]);
-
-  function resetAll() {
-    if (!confirm("Reset everything? This will clear all data.")) return;
-    localStorage.removeItem(STORAGE_KEY + ":players");
-    localStorage.removeItem(STORAGE_KEY + ":contestants");
-    localStorage.removeItem(STORAGE_KEY + ":teams");
-    localStorage.removeItem(STORAGE_KEY + ":draftOrder");
-    localStorage.removeItem(STORAGE_KEY + ":picksPerPlayer");
-    localStorage.removeItem(STORAGE_KEY + ":draftPicks");
-    localStorage.removeItem(STORAGE_KEY + ":currentPickIndex");
-    localStorage.removeItem(STORAGE_KEY + ":weeks");
-    localStorage.removeItem(STORAGE_KEY + ":scoring");
-    localStorage.removeItem(STORAGE_KEY + ":weekEvents");
-    localStorage.removeItem(STORAGE_KEY + ":finale");
-    location.reload();
-  }
-
-  // Scoring calculations
-  function pointsForContestant(cId) {
-    let total = 0;
-    for (let w = 1; w <= weeks; w++) {
-      const e = weekEvents[w]?.[cId];
-      if (!e) continue;
-      total += (e.survive ? scoring.survive : 0);
-      total += (e.rewardWin ? scoring.rewardWin : 0);
-      total += (e.immunityWin ? scoring.immunityWin : 0);
-      total += (e.idolFound ? scoring.idolFound : 0);
-      total += (e.idolPlayedSuccess ? scoring.idolPlayedSuccess : 0);
-    }
-    if (finale.finalistIds.includes(cId)) total += scoring.finalTribal;
-    if (finale.winnerId === cId) total += scoring.winner;
-    return total;
-  }
-
-  const leaderboard = useMemo(() => {
-    return players.map((p) => {
-      const roster = teams[p.id] || [];
-      const pts = roster.reduce((sum, cid) => sum + pointsForContestant(cid), 0);
-      return {
-        id: p.id,
-        name: p.name,
-        points: pts,
-        roster,
+      const DEFAULT_SCORING = {
+        survive: 2,
+        rewardWin: 1,
+        immunityWin: 3,
+        idolFound: 3,
+        idolPlayedSuccess: 5,
+        finalTribal: 5,
+        winner: 10,
       };
-    }).sort((a, b) => b.points - a.points);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [players, teams, weekEvents, finale, scoring, weeks]);
 
-  // Import/Export
-  function exportJSON() {
-    const payload = {
-      players,
-      contestants,
-      draftOrder,
-      picksPerPlayer,
-      draftPicks,
-      weeks,
-      scoring,
-      weekEvents,
-      finale,
-    };
-    const blob = new Blob([JSON.stringify(payload, null, 2)], {
-      type: "application/json",
-    });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "survivor_fantasy_export.json";
-    a.click();
-    URL.revokeObjectURL(url);
-  }
+      const STORAGE_KEY = "survivorFantasy_v1";
 
-  function importJSON(file) {
-    const reader = new FileReader();
-    reader.onload = () => {
-      try {
-        const data = JSON.parse(reader.result);
-        if (!data) return;
-        setPlayers(data.players || players);
-        setContestants(data.contestants || contestants);
-        setDraftOrder(data.draftOrder || draftOrder);
-        setPicksPerPlayer(data.picksPerPlayer || picksPerPlayer);
-        setDraftPicks(data.draftPicks || []);
-        setWeeks(data.weeks || 13);
-        setScoring(data.scoring || DEFAULT_SCORING);
-        setWeekEvents(data.weekEvents || {});
-        setFinale(data.finale || { finalistIds: [], winnerId: null });
-      } catch (e) {
-        alert("Invalid JSON");
+      function useLocalState(key, initial) {
+        const [value, setValue] = useState(() => {
+          try {
+            const raw = localStorage.getItem(key);
+            return raw ? JSON.parse(raw) : initial;
+          } catch (error) {
+            return initial;
+          }
+        });
+
+        useEffect(() => {
+          try {
+            localStorage.setItem(key, JSON.stringify(value));
+          } catch (error) {
+            // ignore write errors (e.g. private browsing)
+          }
+        }, [key, value]);
+
+        return [value, setValue];
       }
-    };
-    reader.readAsText(file);
-  }
 
-  // UI helpers
-  const Tab = ({ id, current, setCurrent, children }) => (
-    <button
-      className={`px-3 py-2 rounded-xl text-sm font-medium transition shadow-sm border ${
-        current === id
-          ? "bg-black text-white border-black"
-          : "bg-white hover:bg-gray-100 border-gray-300"
-      }`}
-      onClick={() => setCurrent(id)}
-    >
-      {children}
-    </button>
-  );
+      function App() {
+        const [players, setPlayers] = useLocalState(STORAGE_KEY + ":players", [
+          { id: "p1", name: "Player 1" },
+          { id: "p2", name: "Player 2" },
+        ]);
 
-  const [tab, setTab] = useState("draft");
+        const [contestants, setContestants] = useLocalState(
+          STORAGE_KEY + ":contestants",
+          DEFAULT_CONTESTANTS
+        );
 
-  return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="p-4 sm:p-6 flex items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold">Survivor S49 Fantasy Draft</h1>
-          <p className="text-gray-600 text-sm sm:text-base">Quick website — share this page, no signup needed. Your data saves in your browser.</p>
-        </div>
-        <div className="flex gap-2">
+        const [teams, setTeams] = useLocalState(STORAGE_KEY + ":teams", {});
+        const [draftOrder, setDraftOrder] = useLocalState(
+          STORAGE_KEY + ":draftOrder",
+          ["p1", "p2"]
+        );
+        const [picksPerPlayer, setPicksPerPlayer] = useLocalState(
+          STORAGE_KEY + ":picksPerPlayer",
+          3
+        );
+        const [draftPicks, setDraftPicks] = useLocalState(
+          STORAGE_KEY + ":draftPicks",
+          []
+        );
+        const [currentPickIndex, setCurrentPickIndex] = useLocalState(
+          STORAGE_KEY + ":currentPickIndex",
+          0
+        );
+        const [weeks, setWeeks] = useLocalState(STORAGE_KEY + ":weeks", 13);
+        const [scoring, setScoring] = useLocalState(
+          STORAGE_KEY + ":scoring",
+          DEFAULT_SCORING
+        );
+        const [weekEvents, setWeekEvents] = useLocalState(
+          STORAGE_KEY + ":weekEvents",
+          {}
+        );
+        const [finale, setFinale] = useLocalState(
+          STORAGE_KEY + ":finale",
+          { finalistIds: [], winnerId: null }
+        );
+
+        const maxPicks = draftOrder.length * picksPerPlayer;
+        const allPickedSet = new Set(draftPicks);
+        const availableContestants = contestants.filter(
+          (c) => !allPickedSet.has(c.id)
+        );
+
+        const pickSequence = useMemo(() => {
+          const rounds = picksPerPlayer;
+          const seq = [];
+          for (let r = 0; r < rounds; r += 1) {
+            const order = r % 2 === 0 ? draftOrder : [...draftOrder].reverse();
+            seq.push(...order);
+          }
+          return seq;
+        }, [draftOrder, picksPerPlayer]);
+
+        const currentPickerId = pickSequence[currentPickIndex] || null;
+
+        const teamsComputed = useMemo(() => {
+          const map = Object.fromEntries(players.map((p) => [p.id, []]));
+          for (let i = 0; i < draftPicks.length; i += 1) {
+            const pid = pickSequence[i];
+            if (!pid) break;
+            map[pid].push(draftPicks[i]);
+          }
+          return map;
+        }, [players, draftPicks, pickSequence]);
+
+        useEffect(() => {
+          setTeams(teamsComputed);
+          // eslint-disable-next-line react-hooks/exhaustive-deps
+        }, [teamsComputed]);
+
+        function resetAll() {
+          if (!window.confirm("Reset everything? This will clear all data.")) return;
+          const keys = [
+            ":players",
+            ":contestants",
+            ":teams",
+            ":draftOrder",
+            ":picksPerPlayer",
+            ":draftPicks",
+            ":currentPickIndex",
+            ":weeks",
+            ":scoring",
+            ":weekEvents",
+            ":finale",
+          ];
+          keys.forEach((suffix) => localStorage.removeItem(STORAGE_KEY + suffix));
+          window.location.reload();
+        }
+
+        function pointsForContestant(cId) {
+          let total = 0;
+          for (let w = 1; w <= weeks; w += 1) {
+            const e = weekEvents[w]?.[cId];
+            if (!e) continue;
+            total += e.survive ? scoring.survive : 0;
+            total += e.rewardWin ? scoring.rewardWin : 0;
+            total += e.immunityWin ? scoring.immunityWin : 0;
+            total += e.idolFound ? scoring.idolFound : 0;
+            total += e.idolPlayedSuccess ? scoring.idolPlayedSuccess : 0;
+          }
+          if (finale.finalistIds.includes(cId)) total += scoring.finalTribal;
+          if (finale.winnerId === cId) total += scoring.winner;
+          return total;
+        }
+
+        const leaderboard = useMemo(() => {
+          return players
+            .map((p) => {
+              const roster = teams[p.id] || [];
+              const pts = roster.reduce(
+                (sum, cid) => sum + pointsForContestant(cid),
+                0
+              );
+              return {
+                id: p.id,
+                name: p.name,
+                points: pts,
+                roster,
+              };
+            })
+            .sort((a, b) => b.points - a.points);
+        }, [players, teams, weekEvents, finale, scoring, weeks]);
+
+        function exportJSON() {
+          const payload = {
+            players,
+            contestants,
+            draftOrder,
+            picksPerPlayer,
+            draftPicks,
+            currentPickIndex,
+            weeks,
+            scoring,
+            weekEvents,
+            finale,
+          };
+          const blob = new Blob([JSON.stringify(payload, null, 2)], {
+            type: "application/json",
+          });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = "survivor_fantasy_export.json";
+          a.click();
+          URL.revokeObjectURL(url);
+        }
+
+        function importJSON(file) {
+          const reader = new FileReader();
+          reader.onload = () => {
+            try {
+              const data = JSON.parse(reader.result);
+              if (!data) return;
+              const nextPlayers = data.players || players;
+              const nextContestants = data.contestants || contestants;
+              const nextDraftOrder = data.draftOrder || draftOrder;
+              const nextPicksPerPlayer = data.picksPerPlayer || picksPerPlayer;
+              const nextDraftPicks = data.draftPicks || [];
+              const nextMaxPicks =
+                nextDraftOrder.length * nextPicksPerPlayer;
+              const nextPickIndex = Math.min(
+                data.currentPickIndex ?? nextDraftPicks.length,
+                nextDraftPicks.length,
+                nextMaxPicks
+              );
+
+              setPlayers(nextPlayers);
+              setContestants(nextContestants);
+              setDraftOrder(nextDraftOrder);
+              setPicksPerPlayer(nextPicksPerPlayer);
+              setDraftPicks(nextDraftPicks);
+              setCurrentPickIndex(nextPickIndex);
+              setWeeks(data.weeks || 13);
+              setScoring(data.scoring || DEFAULT_SCORING);
+              setWeekEvents(data.weekEvents || {});
+              setFinale(data.finale || { finalistIds: [], winnerId: null });
+            } catch (error) {
+              window.alert("Invalid JSON");
+            }
+          };
+          reader.readAsText(file);
+        }
+
+        const Tab = ({ id, current, setCurrent, children }) => (
           <button
-            className="px-3 py-2 rounded-xl bg-white border border-gray-300 hover:bg-gray-100"
-            onClick={exportJSON}
-            title="Download a backup to share"
+            className={`px-3 py-2 rounded-xl text-sm font-medium transition shadow-sm border ${
+              current === id
+                ? "bg-black text-white border-black"
+                : "bg-white hover:bg-gray-100 border-gray-300"
+            }`}
+            onClick={() => setCurrent(id)}
           >
-            Export
+            {children}
           </button>
-          <label className="px-3 py-2 rounded-xl bg-white border border-gray-300 hover:bg-gray-100 cursor-pointer">
-            Import
-            <input type="file" className="hidden" accept="application/json" onChange={(e) => e.target.files?.[0] && importJSON(e.target.files[0])} />
-          </label>
-          <button
-            className="px-3 py-2 rounded-xl bg-white border border-gray-300 hover:bg-gray-100"
-            onClick={resetAll}
-          >
-            Reset
-          </button>
-        </div>
-      </header>
+        );
 
-      <nav className="px-4 sm:px-6 pb-4 flex flex-wrap gap-2">
-        <Tab id="draft" current={tab} setCurrent={setTab}>Draft</Tab>
-        <Tab id="teams" current={tab} setCurrent={setTab}>Teams</Tab>
-        <Tab id="weekly" current={tab} setCurrent={setTab}>Weekly Scoring</Tab>
-        <Tab id="leaderboard" current={tab} setCurrent={setTab}>Leaderboard</Tab>
-        <Tab id="settings" current={tab} setCurrent={setTab}>Settings</Tab>
-        <Tab id="help" current={tab} setCurrent={setTab}>Help</Tab>
-      </nav>
+        const [tab, setTab] = useState("draft");
 
-      {tab === "draft" && (
-        <DraftTab
-          players={players}
-          setPlayers={setPlayers}
-          contestants={contestants}
-          setContestants={setContestants}
-          draftOrder={draftOrder}
-          setDraftOrder={setDraftOrder}
-          picksPerPlayer={picksPerPlayer}
-          setPicksPerPlayer={setPicksPerPlayer}
-          draftPicks={draftPicks}
-          setDraftPicks={setDraftPicks}
-          currentPickIndex={currentPickIndex}
-          setCurrentPickIndex={setCurrentPickIndex}
-          pickSequence={pickSequence}
-          availableContestants={availableContestants}
-          maxPicks={maxPicks}
-        />
-      )}
+        return (
+          <div className="min-h-screen bg-gray-50">
+            <header className="p-4 sm:p-6 flex items-center justify-between gap-3">
+              <div>
+                <h1 className="text-2xl sm:text-3xl font-bold">
+                  Survivor S49 Fantasy Draft
+                </h1>
+                <p className="text-gray-600 text-sm sm:text-base">
+                  Quick website — share this page, no signup needed. Your data
+                  saves in your browser.
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  className="px-3 py-2 rounded-xl bg-white border border-gray-300 hover:bg-gray-100"
+                  onClick={exportJSON}
+                  title="Download a backup to share"
+                >
+                  Export
+                </button>
+                <label className="px-3 py-2 rounded-xl bg-white border border-gray-300 hover:bg-gray-100 cursor-pointer">
+                  Import
+                  <input
+                    type="file"
+                    className="hidden"
+                    accept="application/json"
+                    onChange={(e) =>
+                      e.target.files?.[0] && importJSON(e.target.files[0])
+                    }
+                  />
+                </label>
+                <button
+                  className="px-3 py-2 rounded-xl bg-white border border-gray-300 hover:bg-gray-100"
+                  onClick={resetAll}
+                >
+                  Reset
+                </button>
+              </div>
+            </header>
 
-      {tab === "teams" && (
-        <TeamsTab players={players} contestants={contestants} teams={teams} />
-      )}
+            <nav className="px-4 sm:px-6 pb-4 flex flex-wrap gap-2">
+              <Tab id="draft" current={tab} setCurrent={setTab}>
+                Draft
+              </Tab>
+              <Tab id="teams" current={tab} setCurrent={setTab}>
+                Teams
+              </Tab>
+              <Tab id="weekly" current={tab} setCurrent={setTab}>
+                Weekly Scoring
+              </Tab>
+              <Tab id="leaderboard" current={tab} setCurrent={setTab}>
+                Leaderboard
+              </Tab>
+              <Tab id="settings" current={tab} setCurrent={setTab}>
+                Settings
+              </Tab>
+              <Tab id="help" current={tab} setCurrent={setTab}>
+                Help
+              </Tab>
+            </nav>
 
-      {tab === "weekly" && (
-        <WeeklyTab
-          weeks={weeks}
-          setWeeks={setWeeks}
-          contestants={contestants}
-          weekEvents={weekEvents}
-          setWeekEvents={setWeekEvents}
-          scoring={scoring}
-          finale={finale}
-          setFinale={setFinale}
-        />
-      )}
+            {tab === "draft" && (
+              <DraftTab
+                players={players}
+                setPlayers={setPlayers}
+                contestants={contestants}
+                setContestants={setContestants}
+                draftOrder={draftOrder}
+                setDraftOrder={setDraftOrder}
+                picksPerPlayer={picksPerPlayer}
+                setPicksPerPlayer={setPicksPerPlayer}
+                draftPicks={draftPicks}
+                setDraftPicks={setDraftPicks}
+                currentPickIndex={currentPickIndex}
+                setCurrentPickIndex={setCurrentPickIndex}
+                pickSequence={pickSequence}
+                availableContestants={availableContestants}
+                maxPicks={maxPicks}
+              />
+            )}
 
-      {tab === "leaderboard" && (
-        <LeaderboardTab leaderboard={leaderboard} contestants={contestants} />
-      )}
+            {tab === "teams" && (
+              <TeamsTab
+                players={players}
+                contestants={contestants}
+                teams={teams}
+              />
+            )}
 
-      {tab === "settings" && (
-        <SettingsTab scoring={scoring} setScoring={setScoring} />
-      )}
+            {tab === "weekly" && (
+              <WeeklyTab
+                weeks={weeks}
+                setWeeks={setWeeks}
+                contestants={contestants}
+                weekEvents={weekEvents}
+                setWeekEvents={setWeekEvents}
+                scoring={scoring}
+                finale={finale}
+                setFinale={setFinale}
+              />
+            )}
 
-      {tab === "help" && <HelpTab />}
+            {tab === "leaderboard" && (
+              <LeaderboardTab
+                leaderboard={leaderboard}
+                contestants={contestants}
+              />
+            )}
 
-      <footer className="p-6 text-center text-xs text-gray-500">Made for your Survivor watch party. ✌️</footer>
-    </div>
-  );
-}
+            {tab === "settings" && (
+              <SettingsTab scoring={scoring} setScoring={setScoring} />
+            )}
 
-function DraftTab({
-  players,
-  setPlayers,
-  contestants,
-  setContestants,
-  draftOrder,
-  setDraftOrder,
-  picksPerPlayer,
-  setPicksPerPlayer,
-  draftPicks,
-  setDraftPicks,
-  currentPickIndex,
-  setCurrentPickIndex,
-  pickSequence,
-  availableContestants,
-  maxPicks,
-}) {
-  const [newPlayer, setNewPlayer] = useState("");
+            {tab === "help" && <HelpTab />}
 
-  function addPlayer() {
-    const name = newPlayer.trim();
-    if (!name) return;
-    const id = `p${Date.now()}`;
-    setPlayers([...players, { id, name }]);
-    setDraftOrder([...draftOrder, id]);
-    setNewPlayer("");
-  }
-
-  function removePlayer(pid) {
-    if (!confirm("Remove player from the game?")) return;
-    setPlayers(players.filter((p) => p.id !== pid));
-    setDraftOrder(draftOrder.filter((p) => p !== pid));
-  }
-
-  function editContestant(id, name) {
-    setContestants(
-      contestants.map((c) => (c.id === id ? { ...c, name } : c))
-    );
-  }
-
-  function makePick(cid) {
-    if (currentPickIndex >= maxPicks) return;
-    if (draftPicks.includes(cid)) return;
-    const next = [...draftPicks, cid];
-    setDraftPicks(next);
-    setCurrentPickIndex(currentPickIndex + 1);
-  }
-
-  function undoPick() {
-    if (draftPicks.length === 0) return;
-    const next = draftPicks.slice(0, -1);
-    setDraftPicks(next);
-    setCurrentPickIndex(Math.max(0, currentPickIndex - 1));
-  }
-
-  function moveInOrder(idx, dir) {
-    const next = [...draftOrder];
-    const j = idx + dir;
-    if (j < 0 || j >= next.length) return;
-    [next[idx], next[j]] = [next[j], next[idx]];
-    setDraftOrder(next);
-  }
-
-  const currentPicker = players.find((p) => p.id === pickSequence[currentPickIndex]);
-
-  return (
-    <section className="px-4 sm:px-6 pb-8">
-      <div className="grid gap-6 md:grid-cols-2">
-        <div className="bg-white rounded-2xl shadow p-4 sm:p-6 border border-gray-200">
-          <h2 className="text-lg font-semibold mb-3">Players</h2>
-          <div className="flex gap-2 mb-3">
-            <input
-              className="flex-1 px-3 py-2 rounded-xl border border-gray-300"
-              placeholder="Add player name"
-              value={newPlayer}
-              onChange={(e) => setNewPlayer(e.target.value)}
-            />
-            <button className="px-3 py-2 rounded-xl bg-black text-white" onClick={addPlayer}>Add</button>
+            <footer className="p-6 text-center text-xs text-gray-500">
+              Made for your Survivor watch party. ✌️
+            </footer>
           </div>
-          <ul className="space-y-2">
-            {players.map((p) => (
-              <li key={p.id} className="flex items-center justify-between gap-2">
-                <input
-                  className="flex-1 px-3 py-2 rounded-xl border border-gray-300"
-                  value={p.name}
-                  onChange={(e) => setPlayers(players.map((x) => (x.id === p.id ? { ...x, name: e.target.value } : x)))}
-                />
-                <button className="px-2 py-1 rounded-lg border border-gray-300" onClick={() => removePlayer(p.id)}>Remove</button>
-              </li>
-            ))}
-          </ul>
-          <div className="mt-4">
-            <label className="text-sm text-gray-600">Draft order (drag not supported here, use arrows)</label>
-            <ol className="mt-2 space-y-2">
-              {draftOrder.map((pid, idx) => {
-                const pl = players.find((p) => p.id === pid);
-                return (
-                  <li key={pid} className="flex items-center justify-between bg-gray-50 p-2 rounded-xl border border-gray-200">
-                    <span className="font-medium">{idx + 1}. {pl?.name || "—"}</span>
-                    <div className="flex gap-1">
-                      <button className="px-2 py-1 rounded-lg border" onClick={() => moveInOrder(idx, -1)}>↑</button>
-                      <button className="px-2 py-1 rounded-lg border" onClick={() => moveInOrder(idx, 1)}>↓</button>
-                    </div>
-                  </li>
-                );
-              })}
-            </ol>
-            <div className="mt-3 flex items-center gap-3">
-              <label className="text-sm">Picks per player</label>
-              <input type="number" min={1} max={6} value={picksPerPlayer} onChange={(e) => setPicksPerPlayer(Math.max(1, Math.min(6, Number(e.target.value) || 1)))} className="w-20 px-3 py-2 rounded-xl border border-gray-300" />
-              <button className="ml-auto px-3 py-2 rounded-xl border" onClick={undoPick}>Undo Last Pick</button>
-            </div>
-          </div>
-        </div>
+        );
+      }
 
-        <div className="bg-white rounded-2xl shadow p-4 sm:p-6 border border-gray-200">
-          <h2 className="text-lg font-semibold mb-3">Draft Board</h2>
-          <p className="text-sm text-gray-600 mb-3">{currentPickIndex < maxPicks ? (
-            <>
-              <strong>On the clock:</strong> {currentPicker?.name || "—"} (Pick {currentPickIndex + 1} / {maxPicks})
-            </>
-          ) : (
-            <span>Draft complete ✅</span>
-          )}</p>
+      function DraftTab({
+        players,
+        setPlayers,
+        contestants,
+        setContestants,
+        draftOrder,
+        setDraftOrder,
+        picksPerPlayer,
+        setPicksPerPlayer,
+        draftPicks,
+        setDraftPicks,
+        currentPickIndex,
+        setCurrentPickIndex,
+        pickSequence,
+        availableContestants,
+        maxPicks,
+      }) {
+        const [newPlayer, setNewPlayer] = useState("");
 
-          <div className="grid md:grid-cols-2 gap-3">
-            {contestants.map((c) => {
-              const pickedIdx = draftPicks.indexOf(c.id);
-              const pickedByIdx = pickedIdx >= 0 ? pickSequence[pickedIdx] : null;
-              const pickedBy = pickedByIdx ? players.find((p) => p.id === pickedByIdx) : null;
-              const isAvailable = pickedIdx === -1 && currentPickIndex < maxPicks;
-              return (
-                <div key={c.id} className={`p-3 rounded-xl border ${pickedIdx >= 0 ? "bg-gray-100 border-gray-300" : "bg-white border-gray-200"}`}>
-                  <div className="flex items-center gap-2">
+        function addPlayer() {
+          const name = newPlayer.trim();
+          if (!name) return;
+          const id = `p${Date.now()}`;
+          setPlayers([...players, { id, name }]);
+          setDraftOrder([...draftOrder, id]);
+          setNewPlayer("");
+        }
+
+        function removePlayer(pid) {
+          if (!window.confirm("Remove player from the game?")) return;
+
+          const nextPlayers = players.filter((p) => p.id !== pid);
+          const nextDraftOrder = draftOrder.filter((p) => p !== pid);
+          const filteredDraftPicks = draftPicks.filter(
+            (cid, idx) => pickSequence[idx] !== pid
+          );
+          const nextPickIndex = Math.min(
+            filteredDraftPicks.length,
+            nextDraftOrder.length * picksPerPlayer
+          );
+
+          setPlayers(nextPlayers);
+          setDraftOrder(nextDraftOrder);
+          setDraftPicks(filteredDraftPicks);
+          setCurrentPickIndex(nextPickIndex);
+        }
+
+        function editContestant(id, name) {
+          setContestants(
+            contestants.map((c) => (c.id === id ? { ...c, name } : c))
+          );
+        }
+
+        function makePick(cid) {
+          if (currentPickIndex >= maxPicks) return;
+          if (draftPicks.includes(cid)) return;
+          const next = [...draftPicks, cid];
+          setDraftPicks(next);
+          setCurrentPickIndex(currentPickIndex + 1);
+        }
+
+        function undoPick() {
+          if (draftPicks.length === 0) return;
+          const next = draftPicks.slice(0, -1);
+          setDraftPicks(next);
+          setCurrentPickIndex(Math.max(0, currentPickIndex - 1));
+        }
+
+        function moveInOrder(idx, dir) {
+          const next = [...draftOrder];
+          const j = idx + dir;
+          if (j < 0 || j >= next.length) return;
+          [next[idx], next[j]] = [next[j], next[idx]];
+          setDraftOrder(next);
+        }
+
+        const currentPicker = players.find(
+          (p) => p.id === pickSequence[currentPickIndex]
+        );
+
+        return (
+          <section className="px-4 sm:px-6 pb-8">
+            <div className="grid gap-6 md:grid-cols-2">
+              <div className="bg-white rounded-2xl shadow p-4 sm:p-6 border border-gray-200">
+                <h2 className="text-lg font-semibold mb-3">Players</h2>
+                <div className="flex gap-2 mb-3">
+                  <input
+                    className="flex-1 px-3 py-2 rounded-xl border border-gray-300"
+                    placeholder="Add player name"
+                    value={newPlayer}
+                    onChange={(e) => setNewPlayer(e.target.value)}
+                  />
+                  <button
+                    className="px-3 py-2 rounded-xl bg-black text-white"
+                    onClick={addPlayer}
+                  >
+                    Add
+                  </button>
+                </div>
+                <ul className="space-y-2">
+                  {players.map((p) => (
+                    <li
+                      key={p.id}
+                      className="flex items-center justify-between gap-2"
+                    >
+                      <input
+                        className="flex-1 px-3 py-2 rounded-xl border border-gray-300"
+                        value={p.name}
+                        onChange={(e) =>
+                          setPlayers(
+                            players.map((x) =>
+                              x.id === p.id ? { ...x, name: e.target.value } : x
+                            )
+                          )
+                        }
+                      />
+                      <button
+                        className="px-2 py-1 rounded-lg border border-gray-300"
+                        onClick={() => removePlayer(p.id)}
+                      >
+                        Remove
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+                <div className="mt-4">
+                  <label className="text-sm text-gray-600">
+                    Draft order (drag not supported here, use arrows)
+                  </label>
+                  <ol className="mt-2 space-y-2">
+                    {draftOrder.map((pid, idx) => {
+                      const pl = players.find((p) => p.id === pid);
+                      return (
+                        <li
+                          key={pid}
+                          className="flex items-center justify-between bg-gray-50 p-2 rounded-xl border border-gray-200"
+                        >
+                          <span className="font-medium">
+                            {idx + 1}. {pl?.name || "—"}
+                          </span>
+                          <div className="flex gap-1">
+                            <button
+                              className="px-2 py-1 rounded-lg border"
+                              onClick={() => moveInOrder(idx, -1)}
+                            >
+                              ↑
+                            </button>
+                            <button
+                              className="px-2 py-1 rounded-lg border"
+                              onClick={() => moveInOrder(idx, 1)}
+                            >
+                              ↓
+                            </button>
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ol>
+                  <div className="mt-3 flex items-center gap-3">
+                    <label className="text-sm">Picks per player</label>
                     <input
-                      className="flex-1 px-3 py-2 rounded-lg border border-gray-300"
-                      value={c.name}
-                      onChange={(e) => editContestant(c.id, e.target.value)}
+                      type="number"
+                      min={1}
+                      max={6}
+                      value={picksPerPlayer}
+                      onChange={(e) =>
+                        setPicksPerPlayer(
+                          Math.max(1, Math.min(6, Number(e.target.value) || 1))
+                        )
+                      }
+                      className="w-20 px-3 py-2 rounded-xl border border-gray-300"
                     />
-                    {isAvailable ? (
-                      <button className="px-3 py-2 rounded-lg bg-black text-white" onClick={() => makePick(c.id)}>Draft</button>
-                    ) : (
-                      <span className="text-xs text-gray-600">{pickedBy ? `Picked by ${pickedBy.name}` : "Locked"}</span>
-                    )}
+                    <button
+                      className="ml-auto px-3 py-2 rounded-xl border"
+                      onClick={undoPick}
+                    >
+                      Undo Last Pick
+                    </button>
                   </div>
                 </div>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-}
+              </div>
 
-function TeamsTab({ players, contestants, teams }) {
-  function nameOf(id) {
-    return contestants.find((c) => c.id === id)?.name || "—";
-  }
-  return (
-    <section className="px-4 sm:px-6 pb-8 grid lg:grid-cols-2 gap-6">
-      {players.map((p) => (
-        <div key={p.id} className="bg-white rounded-2xl shadow p-4 sm:p-6 border border-gray-200">
-          <h3 className="text-lg font-semibold mb-2">{p.name}</h3>
-          <ul className="list-disc list-inside space-y-1">
-            {(teams[p.id] || []).map((cid) => (
-              <li key={cid}>{nameOf(cid)}</li>
+              <div className="bg-white rounded-2xl shadow p-4 sm:p-6 border border-gray-200">
+                <h2 className="text-lg font-semibold mb-3">Draft Board</h2>
+                <p className="text-sm text-gray-600 mb-3">
+                  {currentPickIndex < maxPicks ? (
+                    <>
+                      <strong>On the clock:</strong> {currentPicker?.name || "—"} (
+                      Pick {currentPickIndex + 1} / {maxPicks})
+                    </>
+                  ) : (
+                    <span>Draft complete ✅</span>
+                  )}
+                </p>
+
+                <div className="grid md:grid-cols-2 gap-3">
+                  {contestants.map((c) => {
+                    const pickedIdx = draftPicks.indexOf(c.id);
+                    const pickedByIdx = pickedIdx >= 0 ? pickSequence[pickedIdx] : null;
+                    const pickedBy = pickedByIdx
+                      ? players.find((p) => p.id === pickedByIdx)
+                      : null;
+                    const isAvailable =
+                      pickedIdx === -1 && currentPickIndex < maxPicks;
+                    return (
+                      <div
+                        key={c.id}
+                        className={`p-3 rounded-xl border ${
+                          pickedIdx >= 0
+                            ? "bg-gray-100 border-gray-300"
+                            : "bg-white border-gray-200"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <input
+                            className="flex-1 px-3 py-2 rounded-lg border border-gray-300"
+                            value={c.name}
+                            onChange={(e) => editContestant(c.id, e.target.value)}
+                          />
+                          {isAvailable ? (
+                            <button
+                              className="px-3 py-2 rounded-lg bg-black text-white"
+                              onClick={() => makePick(c.id)}
+                            >
+                              Draft
+                            </button>
+                          ) : (
+                            <span className="text-xs text-gray-600">
+                              {pickedBy
+                                ? `Picked by ${pickedBy.name}`
+                                : "Locked"}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          </section>
+        );
+      }
+
+      function TeamsTab({ players, contestants, teams }) {
+        function nameOf(id) {
+          return contestants.find((c) => c.id === id)?.name || "—";
+        }
+
+        return (
+          <section className="px-4 sm:px-6 pb-8 grid lg:grid-cols-2 gap-6">
+            {players.map((p) => (
+              <div
+                key={p.id}
+                className="bg-white rounded-2xl shadow p-4 sm:p-6 border border-gray-200"
+              >
+                <h3 className="text-lg font-semibold mb-2">{p.name}</h3>
+                <ul className="list-disc list-inside space-y-1">
+                  {(teams[p.id] || []).map((cid) => (
+                    <li key={cid}>{nameOf(cid)}</li>
+                  ))}
+                </ul>
+              </div>
             ))}
-          </ul>
-        </div>
-      ))}
-    </section>
-  );
-}
+          </section>
+        );
+      }
 
-function WeeklyTab({ weeks, setWeeks, contestants, weekEvents, setWeekEvents, scoring, finale, setFinale }) {
-  const [week, setWeek] = useState(1);
-  const evKeys = [
-    { key: "survive", label: `Survives (+${scoring.survive})` },
-    { key: "rewardWin", label: `Reward Win (+${scoring.rewardWin})` },
-    { key: "immunityWin", label: `Immunity Win (+${scoring.immunityWin})` },
-    { key: "idolFound", label: `Idol/Advantage Found (+${scoring.idolFound})` },
-    { key: "idolPlayedSuccess", label: `Successful Idol Play (+${scoring.idolPlayedSuccess})` },
-  ];
+      function WeeklyTab({
+        weeks,
+        setWeeks,
+        contestants,
+        weekEvents,
+        setWeekEvents,
+        scoring,
+        finale,
+        setFinale,
+      }) {
+        const [week, setWeek] = useState(1);
+        const evKeys = [
+          { key: "survive", label: `Survives (+${scoring.survive})` },
+          { key: "rewardWin", label: `Reward Win (+${scoring.rewardWin})` },
+          {
+            key: "immunityWin",
+            label: `Immunity Win (+${scoring.immunityWin})`,
+          },
+          {
+            key: "idolFound",
+            label: `Idol/Advantage Found (+${scoring.idolFound})`,
+          },
+          {
+            key: "idolPlayedSuccess",
+            label: `Successful Idol Play (+${scoring.idolPlayedSuccess})`,
+          },
+        ];
 
-  function toggle(cid, key) {
-    setWeekEvents((prev) => {
-      const w = { ...(prev[week] || {}) };
-      const curr = { ...(w[cid] || {}) };
-      curr[key] = !curr[key];
-      w[cid] = curr;
-      return { ...prev, [week]: w };
-    });
-  }
+        function toggle(cid, key) {
+          setWeekEvents((prev) => {
+            const w = { ...(prev[week] || {}) };
+            const curr = { ...(w[cid] || {}) };
+            curr[key] = !curr[key];
+            w[cid] = curr;
+            return { ...prev, [week]: w };
+          });
+        }
 
-  function toggleFinalist(cid) {
-    setFinale((f) => {
-      const set = new Set(f.finalistIds);
-      if (set.has(cid)) set.delete(cid); else set.add(cid);
-      return { ...f, finalistIds: Array.from(set) };
-    });
-  }
+        function toggleFinalist(cid) {
+          setFinale((f) => {
+            const set = new Set(f.finalistIds);
+            if (set.has(cid)) {
+              set.delete(cid);
+            } else {
+              set.add(cid);
+            }
+            return { ...f, finalistIds: Array.from(set) };
+          });
+        }
 
-  return (
-    <section className="px-4 sm:px-6 pb-8 grid gap-6">
-      <div className="bg-white rounded-2xl shadow p-4 sm:p-6 border">
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center gap-2">
-            <label className="text-sm">Total weeks</label>
-            <input type="number" min={6} max={20} value={weeks} onChange={(e) => setWeeks(Math.max(6, Math.min(20, Number(e.target.value) || 6)))} className="w-24 px-3 py-2 rounded-xl border border-gray-300" />
-          </div>
-          <div className="flex items-center gap-2">
-            <label className="text-sm">Week</label>
-            <select value={week} onChange={(e) => setWeek(Number(e.target.value))} className="px-3 py-2 rounded-xl border border-gray-300">
-              {Array.from({ length: weeks }, (_, i) => (
-                <option key={i + 1} value={i + 1}>Week {i + 1}</option>
-              ))}
-            </select>
-          </div>
-          <p className="text-xs text-gray-500">Check off what each contestant did this week.</p>
-        </div>
+        return (
+          <section className="px-4 sm:px-6 pb-8 grid gap-6">
+            <div className="bg-white rounded-2xl shadow p-4 sm:p-6 border">
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="flex items-center gap-2">
+                  <label className="text-sm">Total weeks</label>
+                  <input
+                    type="number"
+                    min={6}
+                    max={20}
+                    value={weeks}
+                    onChange={(e) =>
+                      setWeeks(
+                        Math.max(6, Math.min(20, Number(e.target.value) || 6))
+                      )
+                    }
+                    className="w-24 px-3 py-2 rounded-xl border border-gray-300"
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <label className="text-sm">Week</label>
+                  <select
+                    value={week}
+                    onChange={(e) => setWeek(Number(e.target.value))}
+                    className="px-3 py-2 rounded-xl border border-gray-300"
+                  >
+                    {Array.from({ length: weeks }, (_, i) => (
+                      <option key={i + 1} value={i + 1}>
+                        Week {i + 1}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <p className="text-xs text-gray-500">
+                  Check off what each contestant did this week.
+                </p>
+              </div>
 
-        <div className="mt-4 grid md:grid-cols-2 lg:grid-cols-3 gap-3">
-          {contestants.map((c) => (
-            <div key={c.id} className="p-3 rounded-xl border bg-white">
-              <div className="font-medium mb-1">{c.name}</div>
-              <div className="grid grid-cols-1 gap-1">
-                {evKeys.map((ev) => (
-                  <label key={ev.key} className="flex items-center gap-2 text-sm">
-                    <input type="checkbox" checked={!!weekEvents[week]?.[c.id]?.[ev.key]} onChange={() => toggle(c.id, ev.key)} />
-                    {ev.label}
-                  </label>
+              <div className="mt-4 grid md:grid-cols-2 lg:grid-cols-3 gap-3">
+                {contestants.map((c) => (
+                  <div key={c.id} className="p-3 rounded-xl border bg-white">
+                    <div className="font-medium mb-1">{c.name}</div>
+                    <div className="grid grid-cols-1 gap-1">
+                      {evKeys.map((ev) => (
+                        <label
+                          key={ev.key}
+                          className="flex items-center gap-2 text-sm"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={!!weekEvents[week]?.[c.id]?.[ev.key]}
+                            onChange={() => toggle(c.id, ev.key)}
+                          />
+                          {ev.label}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
                 ))}
               </div>
             </div>
-          ))}
-        </div>
-      </div>
 
-      <div className="bg-white rounded-2xl shadow p-4 sm:p-6 border">
-        <h3 className="text-lg font-semibold mb-2">Finale</h3>
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-3">
-          {contestants.map((c) => (
-            <label key={c.id} className="flex items-center gap-2 p-2 rounded-xl border">
-              <input type="checkbox" checked={finale.finalistIds.includes(c.id)} onChange={() => toggleFinalist(c.id)} />
-              <span>{c.name} <span className="text-xs text-gray-500">{finale.winnerId === c.id ? "(Winner)" : ""}</span></span>
-              <button className="ml-auto text-xs px-2 py-1 rounded-lg border" onClick={() => setFinale({ ...finale, winnerId: c.id })}>Mark Winner</button>
-            </label>
-          ))}
-        </div>
-        <div className="mt-2 text-sm text-gray-600">Finalists get +{scoring.finalTribal}. Winner gets +{scoring.winner}.</div>
-      </div>
-    </section>
-  );
-}
+            <div className="bg-white rounded-2xl shadow p-4 sm:p-6 border">
+              <h3 className="text-lg font-semibold mb-2">Finale</h3>
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-3">
+                {contestants.map((c) => (
+                  <label
+                    key={c.id}
+                    className="flex items-center gap-2 p-2 rounded-xl border"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={finale.finalistIds.includes(c.id)}
+                      onChange={() => toggleFinalist(c.id)}
+                    />
+                    <span>
+                      {c.name}{" "}
+                      <span className="text-xs text-gray-500">
+                        {finale.winnerId === c.id ? "(Winner)" : ""}
+                      </span>
+                    </span>
+                    <button
+                      className="ml-auto text-xs px-2 py-1 rounded-lg border"
+                      onClick={() => setFinale({ ...finale, winnerId: c.id })}
+                    >
+                      Mark Winner
+                    </button>
+                  </label>
+                ))}
+              </div>
+              <div className="mt-2 text-sm text-gray-600">
+                Finalists get +{scoring.finalTribal}. Winner gets +{scoring.winner}.
+              </div>
+            </div>
+          </section>
+        );
+      }
 
-function LeaderboardTab({ leaderboard, contestants }) {
-  function nameOf(id) {
-    return contestants.find((c) => c.id === id)?.name || "—";
-  }
-  return (
-    <section className="px-4 sm:px-6 pb-8">
-      <div className="bg-white rounded-2xl shadow p-4 sm:p-6 border">
-        <h2 className="text-lg font-semibold mb-4">Leaderboard</h2>
-        <div className="overflow-x-auto">
-          <table className="min-w-full text-sm">
-            <thead>
-              <tr className="text-left text-gray-600 border-b">
-                <th className="py-2 pr-4">Rank</th>
-                <th className="py-2 pr-4">Player</th>
-                <th className="py-2 pr-4">Points</th>
-                <th className="py-2 pr-4">Roster</th>
-              </tr>
-            </thead>
-            <tbody>
-              {leaderboard.map((row, i) => (
-                <tr key={row.id} className="border-b last:border-b-0">
-                  <td className="py-2 pr-4">{i + 1}</td>
-                  <td className="py-2 pr-4 font-medium">{row.name}</td>
-                  <td className="py-2 pr-4 font-semibold">{row.points}</td>
-                  <td className="py-2 pr-4">{row.roster.map(nameOf).join(", ")}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </section>
-  );
-}
+      function LeaderboardTab({ leaderboard, contestants }) {
+        function nameOf(id) {
+          return contestants.find((c) => c.id === id)?.name || "—";
+        }
 
-function SettingsTab({ scoring, setScoring }) {
-  function setVal(key, val) {
-    setScoring({ ...scoring, [key]: Math.max(0, Number(val) || 0) });
-  }
-  return (
-    <section className="px-4 sm:px-6 pb-8 grid gap-6">
-      <div className="bg-white rounded-2xl shadow p-4 sm:p-6 border">
-        <h2 className="text-lg font-semibold mb-2">Scoring</h2>
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          <NumberInput label="Survives the week" value={scoring.survive} onChange={(v) => setVal("survive", v)} />
-          <NumberInput label="Reward win" value={scoring.rewardWin} onChange={(v) => setVal("rewardWin", v)} />
-          <NumberInput label="Immunity win" value={scoring.immunityWin} onChange={(v) => setVal("immunityWin", v)} />
-          <NumberInput label="Idol/advantage found" value={scoring.idolFound} onChange={(v) => setVal("idolFound", v)} />
-          <NumberInput label="Successful idol play" value={scoring.idolPlayedSuccess} onChange={(v) => setVal("idolPlayedSuccess", v)} />
-          <NumberInput label="Final tribal (finalist)" value={scoring.finalTribal} onChange={(v) => setVal("finalTribal", v)} />
-          <NumberInput label="Winner bonus" value={scoring.winner} onChange={(v) => setVal("winner", v)} />
-        </div>
-        <p className="text-xs text-gray-500 mt-3">Tip: If you want faster scoring swings, bump Immunity/Idol values.</p>
-      </div>
+        return (
+          <section className="px-4 sm:px-6 pb-8">
+            <div className="bg-white rounded-2xl shadow p-4 sm:p-6 border">
+              <h2 className="text-lg font-semibold mb-4">Leaderboard</h2>
+              <div className="overflow-x-auto">
+                <table className="min-w-full text-sm">
+                  <thead>
+                    <tr className="text-left text-gray-600 border-b">
+                      <th className="py-2 pr-4">Rank</th>
+                      <th className="py-2 pr-4">Player</th>
+                      <th className="py-2 pr-4">Points</th>
+                      <th className="py-2 pr-4">Roster</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {leaderboard.map((row, i) => (
+                      <tr key={row.id} className="border-b last:border-b-0">
+                        <td className="py-2 pr-4">{i + 1}</td>
+                        <td className="py-2 pr-4 font-medium">{row.name}</td>
+                        <td className="py-2 pr-4 font-semibold">{row.points}</td>
+                        <td className="py-2 pr-4">
+                          {row.roster.map(nameOf).join(", ")}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </section>
+        );
+      }
 
-      <div className="bg-white rounded-2xl shadow p-4 sm:p-6 border">
-        <h2 className="text-lg font-semibold mb-2">How to Share</h2>
-        <ol className="list-decimal list-inside space-y-1 text-sm text-gray-700">
-          <li>Click <strong>Export</strong> (top-right) and send the JSON file to your group.</li>
-          <li>Each person can <strong>Import</strong> it to sync the league state.</li>
-          <li>Or host this file as a static site (GitHub Pages / Netlify). Everyone can update their own copy.</li>
-        </ol>
-      </div>
-    </section>
-  );
-}
+      function SettingsTab({ scoring, setScoring }) {
+        function setVal(key, val) {
+          setScoring({ ...scoring, [key]: Math.max(0, Number(val) || 0) });
+        }
 
-function NumberInput({ label, value, onChange }) {
-  return (
-    <label className="flex items-center justify-between gap-3 p-2 rounded-xl border">
-      <span className="text-sm">{label}</span>
-      <input
-        type="number"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-24 px-3 py-2 rounded-xl border border-gray-300"
-      />
-    </label>
-  );
-}
+        return (
+          <section className="px-4 sm:px-6 pb-8 grid gap-6">
+            <div className="bg-white rounded-2xl shadow p-4 sm:p-6 border">
+              <h2 className="text-lg font-semibold mb-2">Scoring</h2>
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                <NumberInput
+                  label="Survives the week"
+                  value={scoring.survive}
+                  onChange={(v) => setVal("survive", v)}
+                />
+                <NumberInput
+                  label="Reward win"
+                  value={scoring.rewardWin}
+                  onChange={(v) => setVal("rewardWin", v)}
+                />
+                <NumberInput
+                  label="Immunity win"
+                  value={scoring.immunityWin}
+                  onChange={(v) => setVal("immunityWin", v)}
+                />
+                <NumberInput
+                  label="Idol/advantage found"
+                  value={scoring.idolFound}
+                  onChange={(v) => setVal("idolFound", v)}
+                />
+                <NumberInput
+                  label="Successful idol play"
+                  value={scoring.idolPlayedSuccess}
+                  onChange={(v) => setVal("idolPlayedSuccess", v)}
+                />
+                <NumberInput
+                  label="Final tribal (finalist)"
+                  value={scoring.finalTribal}
+                  onChange={(v) => setVal("finalTribal", v)}
+                />
+                <NumberInput
+                  label="Winner bonus"
+                  value={scoring.winner}
+                  onChange={(v) => setVal("winner", v)}
+                />
+              </div>
+              <p className="text-xs text-gray-500 mt-3">
+                Tip: If you want faster scoring swings, bump Immunity/Idol values.
+              </p>
+            </div>
 
-function HelpTab() {
-  return (
-    <section className="px-4 sm:px-6 pb-8 grid gap-6">
-      <div className="bg-white rounded-2xl shadow p-4 sm:p-6 border">
-        <h2 className="text-lg font-semibold mb-2">How to Run Your League</h2>
-        <ol className="list-decimal list-inside space-y-1 text-sm text-gray-700">
-          <li>Go to <strong>Draft</strong>: add players, edit contestant names to the S49 cast, set order & picks.</li>
-          <li>Click <strong>Draft</strong> on contestants to run a snake draft. Use <em>Undo Last Pick</em> if needed.</li>
-          <li>Use <strong>Teams</strong> to review rosters.</li>
-          <li>Each episode, open <strong>Weekly Scoring</strong> and check what happened for each contestant.</li>
-          <li>At the finale, mark <strong>Finalists</strong> and select the <strong>Winner</strong>.</li>
-          <li>See standings in <strong>Leaderboard</strong>. Adjust points under <strong>Settings</strong>.</li>
-        </ol>
-        <p className="text-sm text-gray-600 mt-3">Pro tip: Keep a single "league copy" of this page, and after each episode, one person updates scores then uses <strong>Export</strong> to share the JSON with the group.</p>
-      </div>
+            <div className="bg-white rounded-2xl shadow p-4 sm:p-6 border">
+              <h2 className="text-lg font-semibold mb-2">How to Share</h2>
+              <ol className="list-decimal list-inside space-y-1 text-sm text-gray-700">
+                <li>
+                  Click <strong>Export</strong> (top-right) and send the JSON file to
+                  your group.
+                </li>
+                <li>
+                  Each person can <strong>Import</strong> it to sync the league
+                  state.
+                </li>
+                <li>
+                  Or host this file as a static site (GitHub Pages / Netlify).
+                  Everyone can update their own copy.
+                </li>
+              </ol>
+            </div>
+          </section>
+        );
+      }
 
-      <div className="bg-white rounded-2xl shadow p-4 sm:p-6 border">
-        <h2 className="text-lg font-semibold mb-2">Host It Online</h2>
-        <ol className="list-decimal list-inside space-y-1 text-sm text-gray-700">
-          <li>Download this file as <code>index.html</code> using your browser's Save feature or ask ChatGPT to export.</li>
-          <li>Drop it into a GitHub repo and enable <strong>GitHub Pages</strong>, or upload to <strong>Netlify</strong>.</li>
-          <li>Share the link with friends. All data saves locally per device; use Export/Import to sync.</li>
-        </ol>
-      </div>
-    </section>
-  );
-}
+      function NumberInput({ label, value, onChange }) {
+        return (
+          <label className="flex items-center justify-between gap-3 p-2 rounded-xl border">
+            <span className="text-sm">{label}</span>
+            <input
+              type="number"
+              value={value}
+              onChange={(e) => onChange(e.target.value)}
+              className="w-24 px-3 py-2 rounded-xl border border-gray-300"
+            />
+          </label>
+        );
+      }
+
+      function HelpTab() {
+        return (
+          <section className="px-4 sm:px-6 pb-8 grid gap-6">
+            <div className="bg-white rounded-2xl shadow p-4 sm:p-6 border">
+              <h2 className="text-lg font-semibold mb-2">How to Run Your League</h2>
+              <ol className="list-decimal list-inside space-y-1 text-sm text-gray-700">
+                <li>
+                  Go to <strong>Draft</strong>: add players, edit contestant names to
+                  the S49 cast, set order & picks.
+                </li>
+                <li>
+                  Click <strong>Draft</strong> on contestants to run a snake draft.
+                  Use <em>Undo Last Pick</em> if needed.
+                </li>
+                <li>Use <strong>Teams</strong> to review rosters.</li>
+                <li>
+                  Each episode, open <strong>Weekly Scoring</strong> and check what
+                  happened for each contestant.
+                </li>
+                <li>
+                  At the finale, mark <strong>Finalists</strong> and select the
+                  <strong>Winner</strong>.
+                </li>
+                <li>
+                  See standings in <strong>Leaderboard</strong>. Adjust points under
+                  <strong> Settings</strong>.
+                </li>
+              </ol>
+              <p className="text-sm text-gray-600 mt-3">
+                Pro tip: Keep a single "league copy" of this page, and after each
+                episode, one person updates scores then uses <strong>Export</strong>
+                to share the JSON with the group.
+              </p>
+            </div>
+
+            <div className="bg-white rounded-2xl shadow p-4 sm:p-6 border">
+              <h2 className="text-lg font-semibold mb-2">Host It Online</h2>
+              <ol className="list-decimal list-inside space-y-1 text-sm text-gray-700">
+                <li>
+                  Download this file as <code>index.html</code> using your browser's
+                  Save feature or ask ChatGPT to export.
+                </li>
+                <li>
+                  Drop it into a GitHub repo and enable <strong>GitHub Pages</strong>,
+                  or upload to <strong>Netlify</strong>.
+                </li>
+                <li>
+                  Share the link with friends. All data saves locally per device; use
+                  Export/Import to sync.
+                </li>
+              </ol>
+            </div>
+          </section>
+        );
+      }
+
+      ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+    </script>
+  </body>
+</html>
