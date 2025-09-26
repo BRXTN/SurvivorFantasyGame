@@ -9,7 +9,7 @@
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     <script crossorigin src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   </head>
-  <body class="min-h-screen bg-gray-50">
+  <body class="min-h-screen bg-gradient-to-b from-emerald-950 via-slate-900 to-emerald-950 text-emerald-50">
     <div id="root"></div>
 
     <script type="text/babel">
@@ -540,10 +540,10 @@
 
         const Tab = ({ id, current, setCurrent, children }) => (
           <button
-            className={`px-3 py-2 rounded-xl text-sm font-medium transition shadow-sm border ${
+            className={`px-3 py-2 rounded-xl text-sm font-semibold tracking-wide transition shadow border ${
               current === id
-                ? "bg-black text-white border-black"
-                : "bg-white hover:bg-gray-100 border-gray-300"
+                ? "bg-amber-500 text-emerald-950 border-amber-300 shadow-amber-500/40"
+                : "bg-emerald-800/60 text-lime-200 border-emerald-600 hover:bg-emerald-700/70"
             }`}
             onClick={() => setCurrent(id)}
           >
@@ -578,27 +578,26 @@
         }, []);
 
         return (
-          <div className="min-h-screen bg-gray-50">
-            <header className="p-4 sm:p-6 flex items-center justify-between gap-3">
+          <div className="min-h-screen bg-emerald-950/20">
+            <header className="p-4 sm:p-6 flex items-center justify-between gap-3 bg-emerald-900/60 border-b border-emerald-700/70 shadow-lg shadow-emerald-900/40">
               <div>
-                <h1 className="text-2xl sm:text-3xl font-bold">
+                <h1 className="text-2xl sm:text-3xl font-bold text-lime-200 tracking-wide">
                   Survivor S49 Fantasy Draft
                 </h1>
-                <p className="text-gray-600 text-sm sm:text-base">
-                  Quick website — share this page, no signup needed. Your data
-                  saves in your browser.
+                <p className="text-emerald-100/90 text-sm sm:text-base">
+                  Quick website — share this page, no signup needed. Your data saves in your browser.
                 </p>
               </div>
               <div className="flex gap-2">
                 <button
-                  className="px-3 py-2 rounded-xl bg-white border border-gray-300 hover:bg-gray-100"
+                  className="px-3 py-2 rounded-xl bg-amber-500/90 text-emerald-950 font-semibold border border-amber-300 shadow hover:bg-amber-400"
                   onClick={exportJSON}
                   title="Download a backup to share"
                 >
                   Export
                 </button>
 
-                <label className="px-3 py-2 rounded-xl bg-white border border-gray-300 hover:bg-gray-100 cursor-pointer">
+                <label className="px-3 py-2 rounded-xl bg-emerald-800/70 text-lime-200 border border-emerald-500/80 shadow hover:bg-emerald-700/80 cursor-pointer">
                   Import
                   <input
                     type="file"
@@ -609,7 +608,7 @@
                 </label>
 
                 <button
-                  className="px-3 py-2 rounded-xl bg-white border border-gray-300 hover:bg-gray-100"
+                  className="px-3 py-2 rounded-xl bg-emerald-800/70 text-lime-200 border border-emerald-500/70 shadow hover:bg-emerald-700/80"
                   onClick={async () => {
                     const ok = await cloudLoad();
                     if (!ok) window.alert("Cloud load failed or empty.");
@@ -620,7 +619,7 @@
                 </button>
 
                 <button
-                  className="px-3 py-2 rounded-xl bg-white border border-gray-300 hover:bg-gray-100"
+                  className="px-3 py-2 rounded-xl bg-amber-500/90 text-emerald-950 font-semibold border border-amber-300 shadow hover:bg-amber-400"
                   onClick={() => {
                     const snapshot = buildPayloadForSync({
                       players, contestants, draftOrder, picksPerPlayer, draftPicks,
@@ -636,7 +635,7 @@
                 </button>
 
                 <button
-                  className="px-3 py-2 rounded-xl bg-white border border-gray-300 hover:bg-gray-100"
+                  className="px-3 py-2 rounded-xl border border-red-400 text-red-200 hover:bg-red-500/20"
                   onClick={resetAll}
                 >
                   Reset
@@ -644,7 +643,7 @@
               </div>
             </header>
 
-            <nav className="px-4 sm:px-6 pb-4 flex flex-wrap gap-2">
+            <nav className="px-4 sm:px-6 pb-4 flex flex-wrap gap-2 bg-emerald-900/40 border-b border-emerald-700/60">
               <Tab id="draft" current={tab} setCurrent={setTab}>
                 Draft
               </Tab>
@@ -719,7 +718,7 @@
 
             {tab === "help" && <HelpTab />}
 
-            <footer className="p-6 text-center text-xs text-gray-500">
+            <footer className="p-6 text-center text-xs text-emerald-200/70">
               Made for your Survivor watch party. ✌️
             </footer>
           </div>
@@ -821,17 +820,17 @@
         return (
           <section className="px-4 sm:px-6 pb-8">
             <div className="grid gap-6 md:grid-cols-2">
-              <div className="bg-white rounded-2xl shadow p-4 sm:p-6 border border-gray-200">
-                <h2 className="text-lg font-semibold mb-3">Players</h2>
+              <div className="bg-emerald-900/50 rounded-2xl shadow-lg shadow-emerald-900/40 p-4 sm:p-6 border border-emerald-700/70 text-emerald-50">
+                <h2 className="text-lg font-semibold mb-3 text-amber-200">Players</h2>
                 <div className="flex gap-2 mb-3">
                   <input
-                    className="flex-1 px-3 py-2 rounded-xl border border-gray-300"
+                    className="flex-1 px-3 py-2 rounded-xl border border-emerald-600 bg-emerald-950/40 text-lime-100 placeholder-lime-100/50 focus:outline-none focus:ring-2 focus:ring-amber-400/70"
                     placeholder="Add player name"
                     value={newPlayer}
                     onChange={(e) => setNewPlayer(e.target.value)}
                   />
                   <button
-                    className="px-3 py-2 rounded-xl bg-black text-white"
+                    className="px-3 py-2 rounded-xl bg-amber-500/90 text-emerald-950 font-semibold shadow hover:bg-amber-400"
                     onClick={addPlayer}
                   >
                     Add
@@ -844,7 +843,7 @@
                       className="flex items-center justify-between gap-2"
                     >
                       <input
-                        className="flex-1 px-3 py-2 rounded-xl border border-gray-300"
+                        className="flex-1 px-3 py-2 rounded-xl border border-emerald-600 bg-emerald-950/40 text-lime-100 focus:outline-none focus:ring-2 focus:ring-amber-400/70"
                         value={p.name}
                         onChange={(e) =>
                           setPlayers(
@@ -855,7 +854,7 @@
                         }
                       />
                       <button
-                        className="px-2 py-1 rounded-lg border border-gray-300"
+                        className="px-2 py-1 rounded-lg border border-red-400 text-red-200 hover:bg-red-500/20"
                         onClick={() => removePlayer(p.id)}
                       >
                         Remove
@@ -864,7 +863,7 @@
                   ))}
                 </ul>
                 <div className="mt-4">
-                  <label className="text-sm text-gray-600">
+                  <label className="text-sm text-emerald-100/80">
                     Draft order (drag not supported here, use arrows)
                   </label>
                   <ol className="mt-2 space-y-2">
@@ -873,20 +872,20 @@
                       return (
                         <li
                           key={pid}
-                          className="flex items-center justify-between bg-gray-50 p-2 rounded-xl border border-gray-200"
+                          className="flex items-center justify-between bg-emerald-950/40 p-2 rounded-xl border border-emerald-700/60 text-lime-100"
                         >
-                          <span className="font-medium">
+                          <span className="font-semibold text-amber-200">
                             {idx + 1}. {pl?.name || "—"}
                           </span>
                           <div className="flex gap-1">
                             <button
-                              className="px-2 py-1 rounded-lg border"
+                              className="px-2 py-1 rounded-lg border border-emerald-600 text-lime-200 hover:bg-emerald-700/80"
                               onClick={() => moveInOrder(idx, -1)}
                             >
                               ↑
                             </button>
                             <button
-                              className="px-2 py-1 rounded-lg border"
+                              className="px-2 py-1 rounded-lg border border-emerald-600 text-lime-200 hover:bg-emerald-700/80"
                               onClick={() => moveInOrder(idx, 1)}
                             >
                               ↓
@@ -908,10 +907,10 @@
                           Math.max(1, Math.min(6, Number(e.target.value) || 1))
                         )
                       }
-                      className="w-20 px-3 py-2 rounded-xl border border-gray-300"
+                      className="w-20 px-3 py-2 rounded-xl border border-emerald-600 bg-emerald-950/40 text-lime-100 focus:outline-none focus:ring-2 focus:ring-amber-400/70"
                     />
                     <button
-                      className="ml-auto px-3 py-2 rounded-xl border"
+                      className="ml-auto px-3 py-2 rounded-xl border border-emerald-600 text-lime-200 hover:bg-emerald-700/80"
                       onClick={undoPick}
                     >
                       Undo Last Pick
@@ -920,19 +919,23 @@
                 </div>
               </div>
 
-              <div className="bg-white rounded-2xl shadow p-4 sm:p-6 border border-gray-200">
+              <div className="bg-emerald-900/50 rounded-2xl shadow-lg shadow-emerald-900/40 p-4 sm:p-6 border border-emerald-700/70 text-emerald-50">
                 <div className="flex items-center justify-between mb-3">
-                  <h2 className="text-lg font-semibold">Draft Board</h2>
+                  <h2 className="text-lg font-semibold text-amber-200">Draft Board</h2>
                   <button
                     type="button"
-                    className="px-3 py-2 rounded-xl border border-gray-200 text-sm"
+                    className={`px-3 py-2 rounded-xl border text-sm font-medium ${
+                      showPhotoInputs
+                        ? "bg-amber-500/90 text-emerald-950 border-amber-300"
+                        : "bg-emerald-800/70 text-lime-200 border-emerald-600 hover:bg-emerald-700/80"
+                    }`}
                     onClick={() => setShowPhotoInputs((v) => !v)}
                     aria-pressed={showPhotoInputs}
                   >
                     {showPhotoInputs ? "Hide photo URLs" : "Show photo URLs"}
                   </button>
                 </div>
-                <p className="text-sm text-gray-600 mb-3">
+                <p className="text-sm text-emerald-100/80 mb-3">
                   {currentPickIndex < maxPicks ? (
                     <>
                       <strong>On the clock:</strong> {currentPicker?.name || "—"} (
@@ -955,25 +958,25 @@
                     return (
                       <div
                         key={c.id}
-                        className={`p-3 rounded-xl border ${
+                        className={`p-3 rounded-xl border shadow ${
                           pickedIdx >= 0
-                            ? "bg-gray-100 border-gray-300"
-                            : "bg-white border-gray-200"
+                            ? "bg-emerald-950/40 border-emerald-700/70 shadow-none opacity-90"
+                            : "bg-emerald-900/40 border-emerald-600 shadow-emerald-900/30"
                         }`}
                       >
                         <div className="flex items-start gap-3">
                           <ContestantAvatar contestant={c} size={72} />
                           <div className="flex-1 space-y-2">
-                          <input
-                            className="w-full px-3 py-2 rounded-lg border border-gray-300"
-                            value={c.name}
-                            onChange={(e) =>
-                              updateContestant(c.id, { name: e.target.value })
-                            }
-                          />
+                            <input
+                              className="w-full px-3 py-2 rounded-lg border border-emerald-600 bg-emerald-950/40 text-lime-100 focus:outline-none focus:ring-2 focus:ring-amber-400/70"
+                              value={c.name}
+                              onChange={(e) =>
+                                updateContestant(c.id, { name: e.target.value })
+                              }
+                            />
                             {showPhotoInputs && (
                               <input
-                                className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
+                                className="w-full px-3 py-2 rounded-lg border border-emerald-600 bg-emerald-950/30 text-sm text-lime-100 placeholder-lime-100/50 focus:outline-none focus:ring-2 focus:ring-amber-400/70"
                                 placeholder="Photo URL (optional)"
                                 value={c.photoUrl || ""}
                                 onChange={(e) =>
@@ -984,13 +987,13 @@
                           </div>
                           {isAvailable ? (
                             <button
-                              className="px-3 py-2 rounded-lg bg-black text-white"
+                              className="px-3 py-2 rounded-lg bg-amber-500/90 text-emerald-950 font-semibold shadow hover:bg-amber-400"
                               onClick={() => makePick(c.id)}
                             >
                               Draft
                             </button>
                           ) : (
-                            <span className="text-xs text-gray-600">
+                            <span className="text-xs text-emerald-100/70">
                               {pickedBy
                                 ? `Picked by ${pickedBy.name}`
                                 : "Locked"}
@@ -1033,7 +1036,7 @@
               src={src}
               alt={contestant?.name || "Contestant photo"}
               style={style}
-              className="flex-shrink-0 rounded-xl object-cover border border-gray-200 bg-gray-100"
+              className="flex-shrink-0 rounded-xl object-cover border border-emerald-700/70 bg-emerald-900/40"
               onError={() => setErrored(true)}
             />
           );
@@ -1042,7 +1045,7 @@
         return (
           <span
             style={{ ...style, display: "inline-flex" }}
-            className="flex-shrink-0 inline-flex items-center justify-center rounded-xl border border-gray-200 bg-gray-200 text-gray-700 font-semibold uppercase"
+            className="flex-shrink-0 inline-flex items-center justify-center rounded-xl border border-emerald-700/70 bg-emerald-950/60 text-amber-200 font-semibold uppercase"
             aria-hidden="true"
           >
             {initials}
@@ -1060,9 +1063,9 @@
             {players.map((p) => (
               <div
                 key={p.id}
-                className="bg-white rounded-2xl shadow p-4 sm:p-6 border border-gray-200"
+                className="bg-emerald-900/50 rounded-2xl shadow-lg shadow-emerald-900/40 p-4 sm:p-6 border border-emerald-700/60 text-emerald-50"
               >
-                <h3 className="text-lg font-semibold mb-2">{p.name}</h3>
+                <h3 className="text-lg font-semibold mb-2 text-amber-200">{p.name}</h3>
                 <ul className="space-y-2">
                   {(teams[p.id] || []).map((cid) => {
                     const contestant = contestants.find((c) => c.id === cid);
@@ -1132,10 +1135,10 @@
 
         return (
           <section className="px-4 sm:px-6 pb-8 grid gap-6">
-            <div className="bg-white rounded-2xl shadow p-4 sm:p-6 border">
+            <div className="bg-emerald-900/45 rounded-2xl shadow-lg shadow-emerald-900/40 p-4 sm:p-6 border border-emerald-700/60 text-emerald-50">
               <div className="flex flex-wrap items-center gap-3">
                 <div className="flex items-center gap-2">
-                  <label className="text-sm">Total weeks</label>
+                  <label className="text-sm text-emerald-100">Total weeks</label>
                   <input
                     type="number"
                     min={6}
@@ -1146,15 +1149,15 @@
                         Math.max(6, Math.min(20, Number(e.target.value) || 6))
                       )
                     }
-                    className="w-24 px-3 py-2 rounded-xl border border-gray-300"
+                    className="w-24 px-3 py-2 rounded-xl border border-emerald-600 bg-emerald-950/40 text-lime-100 focus:outline-none focus:ring-2 focus:ring-amber-400/70"
                   />
                 </div>
                 <div className="flex items-center gap-2">
-                  <label className="text-sm">Week</label>
+                  <label className="text-sm text-emerald-100">Week</label>
                   <select
                     value={week}
                     onChange={(e) => setWeek(Number(e.target.value))}
-                    className="px-3 py-2 rounded-xl border border-gray-300"
+                    className="px-3 py-2 rounded-xl border border-emerald-600 bg-emerald-950/40 text-lime-100 focus:outline-none focus:ring-2 focus:ring-amber-400/70"
                   >
                     {Array.from({ length: weeks }, (_, i) => (
                       <option key={i + 1} value={i + 1}>
@@ -1163,14 +1166,14 @@
                     ))}
                   </select>
                 </div>
-                <p className="text-xs text-gray-500">
+              <p className="text-xs text-emerald-200/70">
                   Check off what each contestant did this week.
                 </p>
               </div>
 
               <div className="mt-4 grid md:grid-cols-2 lg:grid-cols-3 gap-3">
                 {contestants.map((c) => (
-                  <div key={c.id} className="p-3 rounded-xl border bg-white">
+                  <div key={c.id} className="p-3 rounded-xl border border-emerald-700/60 bg-emerald-900/40">
                     <div className="flex items-center gap-3 mb-2">
                       <ContestantAvatar contestant={c} size={56} />
                       <div className="font-medium leading-tight">{c.name}</div>
@@ -1179,7 +1182,7 @@
                       {evKeys.map((ev) => (
                         <label
                           key={ev.key}
-                          className="flex items-center gap-2 text-sm"
+                          className="flex items-center gap-2 text-sm text-emerald-100"
                         >
                           <input
                             type="checkbox"
@@ -1195,13 +1198,13 @@
               </div>
             </div>
 
-            <div className="bg-white rounded-2xl shadow p-4 sm:p-6 border">
-              <h3 className="text-lg font-semibold mb-2">Finale</h3>
+            <div className="bg-emerald-900/45 rounded-2xl shadow-lg shadow-emerald-900/40 p-4 sm:p-6 border border-emerald-700/60 text-emerald-50">
+              <h3 className="text-lg font-semibold mb-2 text-amber-200">Finale</h3>
               <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-3">
                 {contestants.map((c) => (
                   <label
                     key={c.id}
-                    className="flex items-center gap-3 p-2 rounded-xl border"
+                    className="flex items-center gap-3 p-2 rounded-xl border border-emerald-700/60 bg-emerald-900/40 text-emerald-100"
                   >
                     <input
                       type="checkbox"
@@ -1211,7 +1214,7 @@
                     <ContestantAvatar contestant={c} size={44} />
                     <span className="flex-1">
                       {c.name}{" "}
-                      <span className="text-xs text-gray-500">
+                    <span className="text-xs text-emerald-200/70">
                         {finale.winnerId === c.id ? "(Winner)" : ""}
                       </span>
                     </span>
@@ -1224,7 +1227,7 @@
                   </label>
                 ))}
               </div>
-              <div className="mt-2 text-sm text-gray-600">
+              <div className="mt-2 text-sm text-emerald-100/80">
                 Finalists get +{scoring.finalTribal}. Winner gets +{scoring.winner}.
               </div>
             </div>
@@ -1239,12 +1242,12 @@
 
         return (
           <section className="px-4 sm:px-6 pb-8">
-            <div className="bg-white rounded-2xl shadow p-4 sm:p-6 border">
-              <h2 className="text-lg font-semibold mb-4">Leaderboard</h2>
+            <div className="bg-emerald-900/45 rounded-2xl shadow-lg shadow-emerald-900/40 p-4 sm:p-6 border border-emerald-700/60 text-emerald-50">
+              <h2 className="text-lg font-semibold mb-4 text-amber-200">Leaderboard</h2>
               <div className="overflow-x-auto">
                 <table className="min-w-full text-sm">
                   <thead>
-                    <tr className="text-left text-gray-600 border-b">
+                    <tr className="text-left text-emerald-100 border-b border-emerald-700/60">
                       <th className="py-2 pr-4">Rank</th>
                       <th className="py-2 pr-4">Player</th>
                       <th className="py-2 pr-4">Points</th>
@@ -1253,7 +1256,7 @@
                   </thead>
                   <tbody>
                     {leaderboard.map((row, i) => (
-                      <tr key={row.id} className="border-b last:border-b-0">
+                      <tr key={row.id} className="border-b border-emerald-700/50 last:border-b-0">
                         <td className="py-2 pr-4">{i + 1}</td>
                         <td className="py-2 pr-4 font-medium">{row.name}</td>
                         <td className="py-2 pr-4 font-semibold">{row.points}</td>
@@ -1265,7 +1268,7 @@
                                 return (
                                   <span
                                     key={cid}
-                                    className="px-2 py-1 rounded-lg border text-xs"
+                                    className="px-2 py-1 rounded-lg border border-emerald-700/60 text-xs text-emerald-100"
                                   >
                                     {nameOf(cid)}
                                   </span>
@@ -1274,10 +1277,10 @@
                               return (
                                 <span
                                   key={cid}
-                                  className="flex items-center gap-2 px-2 py-1 rounded-lg border text-xs bg-gray-50"
+                                  className="flex items-center gap-2 px-2 py-1 rounded-lg border border-emerald-700/60 text-xs bg-emerald-950/40"
                                 >
                                   <ContestantAvatar contestant={contestant} size={32} />
-                                  <span>{contestant.name}</span>
+                                  <span className="text-emerald-100">{contestant.name}</span>
                                 </span>
                               );
                             })}
@@ -1300,8 +1303,8 @@
 
         return (
           <section className="px-4 sm:px-6 pb-8 grid gap-6">
-            <div className="bg-white rounded-2xl shadow p-4 sm:p-6 border">
-              <h2 className="text-lg font-semibold mb-2">Scoring</h2>
+            <div className="bg-emerald-900/45 rounded-2xl shadow-lg shadow-emerald-900/40 p-4 sm:p-6 border border-emerald-700/60 text-emerald-50">
+              <h2 className="text-lg font-semibold mb-2 text-amber-200">Scoring</h2>
               <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 <NumberInput
                   label="Survives the week"
@@ -1339,14 +1342,14 @@
                   onChange={(v) => setVal("winner", v)}
                 />
               </div>
-              <p className="text-xs text-gray-500 mt-3">
+              <p className="text-xs text-emerald-200/70 mt-3">
                 Tip: If you want faster scoring swings, bump Immunity/Idol values.
               </p>
             </div>
 
-            <div className="bg-white rounded-2xl shadow p-4 sm:p-6 border">
-              <h2 className="text-lg font-semibold mb-2">How to Share</h2>
-              <ol className="list-decimal list-inside space-y-1 text-sm text-gray-700">
+            <div className="bg-emerald-900/45 rounded-2xl shadow-lg shadow-emerald-900/40 p-4 sm:p-6 border border-emerald-700/60 text-emerald-50">
+              <h2 className="text-lg font-semibold mb-2 text-amber-200">How to Share</h2>
+              <ol className="list-decimal list-inside space-y-1 text-sm text-emerald-100">
                 <li>
                   Click <strong>Export</strong> (top-right) and send the JSON file to
                   your group.
@@ -1367,13 +1370,13 @@
 
       function NumberInput({ label, value, onChange }) {
         return (
-          <label className="flex items-center justify-between gap-3 p-2 rounded-xl border">
-            <span className="text-sm">{label}</span>
+          <label className="flex items-center justify-between gap-3 p-2 rounded-xl border border-emerald-700/60 bg-emerald-900/40 text-emerald-100">
+            <span className="text-sm text-emerald-100">{label}</span>
             <input
               type="number"
               value={value}
               onChange={(e) => onChange(e.target.value)}
-              className="w-24 px-3 py-2 rounded-xl border border-gray-300"
+              className="w-24 px-3 py-2 rounded-xl border border-emerald-600 bg-emerald-950/40 text-lime-100 focus:outline-none focus:ring-2 focus:ring-amber-400/70"
             />
           </label>
         );
@@ -1382,9 +1385,9 @@
       function HelpTab() {
         return (
           <section className="px-4 sm:px-6 pb-8 grid gap-6">
-            <div className="bg-white rounded-2xl shadow p-4 sm:p-6 border">
-              <h2 className="text-lg font-semibold mb-2">How to Run Your League</h2>
-              <ol className="list-decimal list-inside space-y-1 text-sm text-gray-700">
+            <div className="bg-emerald-900/45 rounded-2xl shadow-lg shadow-emerald-900/40 p-4 sm:p-6 border border-emerald-700/60 text-emerald-50">
+              <h2 className="text-lg font-semibold mb-2 text-amber-200">How to Run Your League</h2>
+              <ol className="list-decimal list-inside space-y-1 text-sm text-emerald-100">
                 <li>
                   Go to <strong>Draft</strong>: add players, edit contestant names to
                   the S49 cast, set order & picks.
@@ -1407,16 +1410,16 @@
                   <strong> Settings</strong>.
                 </li>
               </ol>
-              <p className="text-sm text-gray-600 mt-3">
+              <p className="text-sm text-emerald-100/80 mt-3">
                 Pro tip: Keep a single "league copy" of this page, and after each
                 episode, one person updates scores then uses <strong>Export</strong>
                 to share the JSON with the group.
               </p>
             </div>
 
-            <div className="bg-white rounded-2xl shadow p-4 sm:p-6 border">
-              <h2 className="text-lg font-semibold mb-2">Host It Online</h2>
-              <ol className="list-decimal list-inside space-y-1 text-sm text-gray-700">
+            <div className="bg-emerald-900/45 rounded-2xl shadow-lg shadow-emerald-900/40 p-4 sm:p-6 border border-emerald-700/60 text-emerald-50">
+              <h2 className="text-lg font-semibold mb-2 text-amber-200">Host It Online</h2>
+              <ol className="list-decimal list-inside space-y-1 text-sm text-emerald-100">
                 <li>
                   Download this file as <code>index.html</code> using your browser's
                   Save feature or ask ChatGPT to export.
