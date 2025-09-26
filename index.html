@@ -447,25 +447,12 @@
             const url = new URL(CLOUD.endpoint);
             url.searchParams.set("league", CLOUD.leagueId);
 
-            let res = await fetch(url.toString(), {
+            const res = await fetch(url.toString(), {
               method: "GET",
               credentials: "omit",
               mode: "cors",
               headers: { Accept: "application/json" },
             });
-
-            if (!res.ok) {
-              res = await fetch(CLOUD.endpoint, {
-                method: "POST",
-                credentials: "omit",
-                mode: "cors",
-                headers: {
-                  "Content-Type": "application/json",
-                  Accept: "application/json",
-                },
-                body: JSON.stringify({ league: CLOUD.leagueId, mode: "load" }),
-              });
-            }
 
             if (!res.ok) {
               const text = await res.text().catch(() => "");
@@ -513,12 +500,8 @@
 
         async function cloudSave(snapshot) {
           const url = new URL(CLOUD.endpoint);
-          url.searchParams.set("mode", "save");
-          const payload = {
-            league: CLOUD.leagueId,
-            data: snapshot,
-          };
-          if (CLOUD.writeKey) payload.writeKey = CLOUD.writeKey;
+          url.searchParams.set("league", CLOUD.leagueId);
+          if (CLOUD.writeKey) url.searchParams.set("writeKey", CLOUD.writeKey);
 
           const res = await fetch(url.toString(), {
             method: "POST",
@@ -526,7 +509,7 @@
               "Content-Type": "application/json",
               Accept: "application/json",
             },
-            body: JSON.stringify(payload),
+            body: JSON.stringify(snapshot),
             credentials: "omit",
             mode: "cors",
           });
